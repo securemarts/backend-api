@@ -1,5 +1,6 @@
 package com.shopper.domain.onboarding.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.onboarding.dto.*;
 import com.shopper.domain.onboarding.service.OnboardingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -70,11 +71,11 @@ public class BusinessMemberController {
     @DeleteMapping("/{memberPublicId}")
     @PreAuthorize("hasRole('MERCHANT_OWNER')")
     @Operation(summary = "Remove member", description = "Permanently remove the member from the business. For temporary revoke, use PATCH with status DEACTIVATED.")
-    public ResponseEntity<Void> removeMember(
+    public ResponseEntity<?> removeMember(
             @AuthenticationPrincipal String userPublicId,
             @Parameter(description = "Business public ID") @PathVariable String businessPublicId,
             @Parameter(description = "Member public ID") @PathVariable String memberPublicId) {
         onboardingService.removeMember(userPublicId, businessPublicId, memberPublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

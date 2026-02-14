@@ -4,6 +4,7 @@ import com.shopper.domain.catalog.service.FileStorageService;
 import com.shopper.domain.logistics.repository.DeliveryOrderRepository;
 import com.shopper.domain.rider.dto.CompleteDeliveryRequest;
 import com.shopper.domain.rider.dto.RiderDeliveryResponse;
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.rider.dto.UpdateLocationRequest;
 import com.shopper.domain.rider.service.RiderDeliveryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,11 +43,11 @@ public class RiderDeliveryController {
 
     @PatchMapping("/me/location")
     @Operation(summary = "Update my location", description = "Set rider's current position for dispatch (call when going available or periodically)")
-    public ResponseEntity<Void> updateMyLocation(
+    public ResponseEntity<?> updateMyLocation(
             @AuthenticationPrincipal String riderPublicId,
             @Valid @RequestBody UpdateLocationRequest request) {
         riderDeliveryService.updateRiderLocation(riderPublicId, request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @GetMapping("/{deliveryOrderPublicId}")
@@ -67,11 +68,11 @@ public class RiderDeliveryController {
 
     @PostMapping("/{deliveryOrderPublicId}/reject")
     @Operation(summary = "Reject assigned delivery (unassign)")
-    public ResponseEntity<Void> rejectDelivery(
+    public ResponseEntity<?> rejectDelivery(
             @AuthenticationPrincipal String riderPublicId,
             @PathVariable String deliveryOrderPublicId) {
         riderDeliveryService.rejectDelivery(riderPublicId, deliveryOrderPublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/{deliveryOrderPublicId}/start")

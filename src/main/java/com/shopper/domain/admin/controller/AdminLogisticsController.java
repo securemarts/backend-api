@@ -1,5 +1,6 @@
 package com.shopper.domain.admin.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.common.dto.PageResponse;
 import com.shopper.domain.logistics.dto.*;
 import com.shopper.domain.logistics.service.LogisticsService;
@@ -59,11 +60,11 @@ public class AdminLogisticsController {
     @PatchMapping("/stores/{storePublicId}/service-zone")
     @Operation(summary = "Assign store to service zone", description = "Set which zone a store delivers in. Required before creating delivery orders.")
     @PreAuthorize("hasRole('PLATFORM_ADMIN') or hasRole('SUPERUSER')")
-    public ResponseEntity<Void> setStoreServiceZone(
+    public ResponseEntity<?> setStoreServiceZone(
             @PathVariable String storePublicId,
             @RequestBody SetStoreZoneRequest request) {
         logisticsService.setStoreServiceZone(storePublicId, request != null ? request.getZonePublicId() : null);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     // --- Riders ---

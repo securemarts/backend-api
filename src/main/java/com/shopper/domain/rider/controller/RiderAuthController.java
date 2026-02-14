@@ -2,6 +2,7 @@ package com.shopper.domain.rider.controller;
 
 import com.shopper.domain.auth.dto.RefreshTokenRequest;
 import com.shopper.domain.auth.dto.TokenResponse;
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.rider.dto.RiderLoginRequest;
 import com.shopper.domain.rider.service.RiderAuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,10 +34,10 @@ public class RiderAuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "Logout", description = "Revoke refresh token")
-    public ResponseEntity<Void> logout(@RequestBody(required = false) RefreshTokenRequest request) {
+    public ResponseEntity<?> logout(@RequestBody(required = false) RefreshTokenRequest request) {
         if (request != null && request.getRefreshToken() != null) {
             riderAuthService.logout(request.getRefreshToken());
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

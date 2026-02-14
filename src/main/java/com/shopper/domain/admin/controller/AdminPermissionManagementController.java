@@ -1,5 +1,6 @@
 package com.shopper.domain.admin.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.admin.dto.*;
 import com.shopper.domain.admin.service.AdminPermissionManagementService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,8 +57,8 @@ public class AdminPermissionManagementController {
     @DeleteMapping("/{permissionPublicId}")
     @Operation(summary = "Delete permission")
     @PreAuthorize("hasRole('SUPERUSER') or hasAuthority('SCOPE_permission:delete')")
-    public ResponseEntity<Void> deletePermission(@PathVariable String permissionPublicId) {
+    public ResponseEntity<?> deletePermission(@PathVariable String permissionPublicId) {
         adminPermissionManagementService.deletePermission(permissionPublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

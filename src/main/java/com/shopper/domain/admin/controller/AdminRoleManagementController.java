@@ -1,5 +1,6 @@
 package com.shopper.domain.admin.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.admin.dto.*;
 import com.shopper.domain.admin.service.PlatformRoleService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,9 +57,9 @@ public class AdminRoleManagementController {
     @DeleteMapping("/{rolePublicId}")
     @Operation(summary = "Delete role")
     @PreAuthorize("hasRole('SUPERUSER') or hasAuthority('SCOPE_role:delete')")
-    public ResponseEntity<Void> deleteRole(@PathVariable String rolePublicId) {
+    public ResponseEntity<?> deleteRole(@PathVariable String rolePublicId) {
         platformRoleService.deleteRole(rolePublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @GetMapping("/{rolePublicId}/permissions")

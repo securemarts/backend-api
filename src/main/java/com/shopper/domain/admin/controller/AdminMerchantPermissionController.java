@@ -1,5 +1,6 @@
 package com.shopper.domain.admin.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.onboarding.dto.*;
 import com.shopper.domain.onboarding.service.MerchantPermissionManagementService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,8 +57,8 @@ public class AdminMerchantPermissionController {
     @DeleteMapping("/{permissionPublicId}")
     @Operation(summary = "Delete merchant permission")
     @PreAuthorize("hasRole('SUPERUSER') or hasAuthority('SCOPE_merchant_permission:delete')")
-    public ResponseEntity<Void> deletePermission(@PathVariable String permissionPublicId) {
+    public ResponseEntity<?> deletePermission(@PathVariable String permissionPublicId) {
         merchantPermissionManagementService.deletePermission(permissionPublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

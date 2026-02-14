@@ -1,6 +1,7 @@
 package com.shopper.domain.onboarding.controller;
 
 import com.shopper.domain.catalog.service.FileStorageService;
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.onboarding.dto.*;
 import com.shopper.domain.onboarding.entity.BankAccount;
 import com.shopper.domain.onboarding.entity.ComplianceDocument;
@@ -89,11 +90,11 @@ public class OnboardingController {
 
     @PostMapping("/businesses/{businessPublicId}/submit")
     @Operation(summary = "Submit for verification", description = "Submit business for admin approval")
-    public ResponseEntity<Void> submitForVerification(
+    public ResponseEntity<?> submitForVerification(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String businessPublicId) {
         onboardingService.submitForVerification(userPublicId, businessPublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/stores/{storePublicId}/bank-accounts")
@@ -116,11 +117,11 @@ public class OnboardingController {
 
     @PostMapping("/stores/{storePublicId}/activate")
     @Operation(summary = "Activate store", description = "Activate store after business is approved")
-    public ResponseEntity<Void> activateStore(
+    public ResponseEntity<?> activateStore(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String storePublicId) {
         onboardingService.activateStore(userPublicId, storePublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @GetMapping("/me/stores")

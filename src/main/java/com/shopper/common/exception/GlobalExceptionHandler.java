@@ -1,6 +1,6 @@
 package com.shopper.common.exception;
 
-import com.shopper.common.dto.ApiError;
+import com.shopper.common.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -16,177 +16,80 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.mapping.PropertyReferenceException;
 
-import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.NOT_FOUND.value())
-                        .error("NOT_FOUND")
-                        .message(ex.getMessage())
-                        .path(request.getRequestURI())
-                        .build());
+    public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("NOT_FOUND", ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        List<ApiError.FieldError> errors = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> new ApiError.FieldError(fe.getField(), fe.getDefaultMessage(), fe.getRejectedValue()))
-                .collect(Collectors.toList());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.BAD_REQUEST.value())
-                        .error("VALIDATION_ERROR")
-                        .message("Validation failed")
-                        .path(request.getRequestURI())
-                        .fieldErrors(errors)
-                        .build());
+    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("VALIDATION_ERROR", "Validation failed"));
     }
 
     @ExceptionHandler(BindException.class)
-    public ResponseEntity<ApiError> handleBind(BindException ex, HttpServletRequest request) {
-        List<ApiError.FieldError> errors = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> new ApiError.FieldError(fe.getField(), fe.getDefaultMessage(), fe.getRejectedValue()))
-                .collect(Collectors.toList());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.BAD_REQUEST.value())
-                        .error("VALIDATION_ERROR")
-                        .message("Invalid request")
-                        .path(request.getRequestURI())
-                        .fieldErrors(errors)
-                        .build());
+    public ResponseEntity<?> handleBind(BindException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("VALIDATION_ERROR", "Invalid request"));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiError> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
-        List<ApiError.FieldError> errors = ex.getConstraintViolations().stream()
-                .map(v -> new ApiError.FieldError(
-                        v.getPropertyPath().toString(),
-                        v.getMessage(),
-                        v.getInvalidValue()))
-                .collect(Collectors.toList());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.BAD_REQUEST.value())
-                        .error("VALIDATION_ERROR")
-                        .message("Constraint violation")
-                        .path(request.getRequestURI())
-                        .fieldErrors(errors)
-                        .build());
+    public ResponseEntity<?> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("VALIDATION_ERROR", "Constraint violation"));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiError> handleBadCredentials(BadCredentialsException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.UNAUTHORIZED.value())
-                        .error("UNAUTHORIZED")
-                        .message("Invalid email or password")
-                        .path(request.getRequestURI())
-                        .build());
+    public ResponseEntity<?> handleBadCredentials(BadCredentialsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("UNAUTHORIZED", "Invalid email or password"));
     }
 
     @ExceptionHandler(LockedException.class)
-    public ResponseEntity<ApiError> handleLocked(LockedException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.LOCKED).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.LOCKED.value())
-                        .error("ACCOUNT_LOCKED")
-                        .message(ex.getMessage())
-                        .path(request.getRequestURI())
-                        .build());
+    public ResponseEntity<?> handleLocked(LockedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.LOCKED).body(ApiResponse.error("ACCOUNT_LOCKED", ex.getMessage()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.FORBIDDEN.value())
-                        .error("FORBIDDEN")
-                        .message("Access denied")
-                        .path(request.getRequestURI())
-                        .build());
+    public ResponseEntity<?> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("FORBIDDEN", "Access denied"));
     }
 
     @ExceptionHandler(PropertyReferenceException.class)
-    public ResponseEntity<ApiError> handlePropertyReference(PropertyReferenceException ex, HttpServletRequest request) {
+    public ResponseEntity<?> handlePropertyReference(PropertyReferenceException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.BAD_REQUEST.value())
-                        .error("VALIDATION_ERROR")
-                        .message("Invalid sort property: " + ex.getPropertyName())
-                        .path(request.getRequestURI())
-                        .build());
+                ApiResponse.error("VALIDATION_ERROR", "Invalid sort property: " + ex.getPropertyName()));
     }
 
     private static final Pattern UNKNOWN_PATH_PATTERN = Pattern.compile("Could not resolve attribute '([^']+)'");
 
     @ExceptionHandler(InvalidDataAccessApiUsageException.class)
-    public ResponseEntity<ApiError> handleInvalidDataAccessApiUsage(InvalidDataAccessApiUsageException ex,
+    public ResponseEntity<?> handleInvalidDataAccessApiUsage(InvalidDataAccessApiUsageException ex,
             HttpServletRequest request) {
         String message = ex.getMessage();
         if (message != null && (message.contains("Could not resolve attribute") || message.contains("UnknownPathException"))) {
             Matcher m = UNKNOWN_PATH_PATTERN.matcher(message);
             String prop = m.find() ? m.group(1) : "unknown";
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                    ApiError.builder()
-                            .timestamp(Instant.now())
-                            .status(HttpStatus.BAD_REQUEST.value())
-                            .error("VALIDATION_ERROR")
-                            .message("Invalid sort property: " + prop)
-                            .path(request.getRequestURI())
-                            .build());
+                    ApiResponse.error("VALIDATION_ERROR", "Invalid sort property: " + prop));
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.BAD_REQUEST.value())
-                        .error("VALIDATION_ERROR")
-                        .message(message != null ? message : "Invalid request")
-                        .path(request.getRequestURI())
-                        .build());
+                ApiResponse.error("VALIDATION_ERROR", message != null ? message : "Invalid request"));
     }
 
     @ExceptionHandler(BusinessRuleException.class)
-    public ResponseEntity<ApiError> handleBusinessRule(BusinessRuleException ex, HttpServletRequest request) {
+    public ResponseEntity<?> handleBusinessRule(BusinessRuleException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
-                        .error("BUSINESS_RULE_VIOLATION")
-                        .message(ex.getMessage())
-                        .path(request.getRequestURI())
-                        .build());
+                ApiResponse.error("BUSINESS_RULE_VIOLATION", ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
+    public ResponseEntity<?> handleGeneric(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                ApiError.builder()
-                        .timestamp(Instant.now())
-                        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                        .error("INTERNAL_ERROR")
-                        .message("An unexpected error occurred")
-                        .path(request.getRequestURI())
-                        .build());
+                ApiResponse.error("INTERNAL_ERROR", "An unexpected error occurred"));
     }
 }

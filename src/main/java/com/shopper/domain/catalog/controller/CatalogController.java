@@ -3,6 +3,7 @@ package com.shopper.domain.catalog.controller;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopper.common.dto.PageResponse;
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.catalog.dto.ProductRequest;
 import com.shopper.domain.catalog.dto.ProductResponse;
 import com.shopper.domain.catalog.service.CatalogService;
@@ -163,7 +164,7 @@ public class CatalogController {
     @DeleteMapping("/{productPublicId}")
     @Operation(summary = "Delete product (soft delete)")
     @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
-    public ResponseEntity<Void> delete(
+    public ResponseEntity<?> delete(
             @AuthenticationPrincipal String userPublicId,
             @Parameter(description = "Store public ID (products belong to this store)") @PathVariable String storePublicId,
             @PathVariable String productPublicId) {
@@ -172,7 +173,7 @@ public class CatalogController {
         Long storeId = catalogService.resolveStoreId(storePublicId);
         ensureStoreAccess(storeId);
         catalogService.deleteProduct(storeId, productPublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     private void ensureStoreAccess(Long storeId) {

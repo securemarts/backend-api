@@ -1,5 +1,6 @@
 package com.shopper.domain.auth.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.auth.dto.*;
 import com.shopper.domain.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,38 +43,38 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "Logout", description = "Revoke refresh token")
-    public ResponseEntity<Void> logout(@RequestBody(required = false) RefreshTokenRequest request) {
+    public ResponseEntity<?> logout(@RequestBody(required = false) RefreshTokenRequest request) {
         if (request != null && request.getRefreshToken() != null) {
             authService.logout(request.getRefreshToken());
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/verify-email")
     @Operation(summary = "Verify email", description = "Confirm email using token from link")
-    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody VerifyRequest request) {
+    public ResponseEntity<?> verifyEmail(@Valid @RequestBody VerifyRequest request) {
         authService.verifyEmail(request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/verify-phone")
     @Operation(summary = "Verify phone", description = "Confirm phone using OTP (stub)")
-    public ResponseEntity<Void> verifyPhone(@Valid @RequestBody VerifyRequest request) {
+    public ResponseEntity<?> verifyPhone(@Valid @RequestBody VerifyRequest request) {
         authService.verifyPhone(request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/reset-password/request")
     @Operation(summary = "Request password reset", description = "Send reset link to email")
-    public ResponseEntity<Void> requestResetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<?> requestResetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.requestResetPassword(request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/reset-password/confirm")
     @Operation(summary = "Confirm password reset", description = "Set new password using token from email")
-    public ResponseEntity<Void> confirmResetPassword(@Valid @RequestBody ConfirmResetPasswordRequest request) {
+    public ResponseEntity<?> confirmResetPassword(@Valid @RequestBody ConfirmResetPasswordRequest request) {
         authService.confirmResetPassword(request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

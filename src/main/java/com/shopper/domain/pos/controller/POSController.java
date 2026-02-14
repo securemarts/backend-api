@@ -1,5 +1,6 @@
 package com.shopper.domain.pos.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.onboarding.repository.StoreRepository;
 import com.shopper.domain.onboarding.service.MerchantPermissionService;
 import com.shopper.domain.onboarding.service.StoreAccessService;
@@ -147,7 +148,7 @@ public class POSController {
     @PostMapping("/registers/{registerPublicId}/cash-movements")
     @Operation(summary = "Add cash movement (withdrawal/deposit for reconciliation)")
     @PreAuthorize("hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
-    public ResponseEntity<Void> addCashMovement(
+    public ResponseEntity<?> addCashMovement(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String storePublicId,
             @PathVariable String registerPublicId,
@@ -156,6 +157,6 @@ public class POSController {
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
         Long storeId = resolveStoreId(storePublicId);
         posService.addCashMovement(storeId, registerPublicId, request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

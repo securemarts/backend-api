@@ -1,5 +1,6 @@
 package com.shopper.domain.admin.controller;
 
+import com.shopper.common.dto.ApiResponse;
 import com.shopper.common.dto.PageResponse;
 import com.shopper.domain.admin.dto.AdminResponse;
 import com.shopper.domain.admin.dto.UpdateAdminRequest;
@@ -53,10 +54,10 @@ public class AdminUserManagementController {
     @DeleteMapping("/admins/{adminPublicId}")
     @Operation(summary = "Delete admin", description = "Permanently remove admin. Cannot delete yourself.")
     @PreAuthorize("hasRole('SUPERUSER') or hasAuthority('SCOPE_admin:delete')")
-    public ResponseEntity<Void> deleteAdmin(
+    public ResponseEntity<?> deleteAdmin(
             @AuthenticationPrincipal String requesterAdminPublicId,
             @PathVariable String adminPublicId) {
         adminService.deleteAdmin(requesterAdminPublicId, adminPublicId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
