@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: shopper-platform
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shopper
+    username: shopper
+    password: ${DB_PASSWORD:shopper}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: public
+        format_sql: true
+        jdbc:
+          batch_size: 25
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  cache:
+    type: caffeine
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+server:
+  servlet:
+    context-path: /api/v1
+
+# JWT
+app:
+  uploads:
+    path: ${UPLOADS_PATH:./uploads}
+  jwt:
+    access-secret: ${JWT_ACCESS_SECRET:your-256-bit-secret-for-access-token-min-32-chars}
+    refresh-secret: ${JWT_REFRESH_SECRET:your-256-bit-secret-for-refresh-token-min-32-chars}
+    access-ttl: 900
+    refresh-ttl: 604800
+    issuer: shopper-platform
+  auth:
+    max-login-attempts: 5
+    lockout-duration-minutes: 30
+    rate-limit-login-per-minute: 10
+  default-currency: NGN
+  payment:
+    paystack:
+      secret-key: ${APP_PAYMENT_PAYSTACK_SECRET_KEY:sk_test_1e3906ff831ba4469a090d193000c9fcc5dc02d3}
+      public-key: ${APP_PAYMENT_PAYSTACK_PUBLIC_KEY:pk_test_32b80826f25b92fa82e66a6389fef92bf626cc95}
+    flutterwave:
+      secret-key: ${APP_PAYMENT_FLUTTERWAVE_SECRET_KEY:}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+logging:
+  level:
+    com.shopper: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG

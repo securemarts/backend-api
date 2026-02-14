@@ -1,0 +1,17 @@
+package com.shopper.domain.pos.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Builder;
+import lombok.Data;
+
+import java.math.BigDecimal;
+
+@Data
+@Builder
+@Schema(description = "Current cash drawer state (derived from movements)")
+public class CashDrawerResponse {
+
+    private BigDecimal balance;
+    private String sessionPublicId;
+    private String status;
+}

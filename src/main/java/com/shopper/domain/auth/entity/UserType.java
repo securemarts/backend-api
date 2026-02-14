@@ -1,0 +1,9 @@
+package com.shopper.domain.auth.entity;
+
+public enum UserType {
+    MERCHANT_OWNER,
+    MERCHANT_STAFF,
+    CUSTOMER,
+    PLATFORM_ADMIN,
+    APP_CLIENT
+}

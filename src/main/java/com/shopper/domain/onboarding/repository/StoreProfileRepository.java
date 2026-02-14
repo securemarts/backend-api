@@ -1,0 +1,14 @@
+package com.shopper.domain.onboarding.repository;
+
+import com.shopper.domain.onboarding.entity.StoreProfile;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.Optional;
+
+public interface StoreProfileRepository extends JpaRepository<StoreProfile, Long> {
+
+    @Query("SELECT p FROM StoreProfile p LEFT JOIN FETCH p.zone WHERE p.store.id = :storeId")
+    Optional<StoreProfile> findByStoreIdWithZone(@Param("storeId") Long storeId);
+}
