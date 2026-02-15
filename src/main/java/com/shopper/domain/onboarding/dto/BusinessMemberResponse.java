@@ -16,6 +16,7 @@ public class BusinessMemberResponse {
     private String email;
     @Schema(description = "Role codes (e.g. MANAGER, CASHIER, STAFF); multiple if multi-role")
     private java.util.List<String> roles;
+    @Schema(description = "Member status", allowableValues = {"INVITED", "ACTIVE", "DEACTIVATED"})
     private String status;
     private String userPublicId;
     private Instant invitedAt;

@@ -32,7 +32,7 @@ public class CheckoutService {
     private final PaymentService paymentService;
 
     @Transactional
-    public Order createOrderFromCart(Long storeId, Long customerId, String cartPublicId) {
+    public Order createOrderFromCart(Long storeId, Long customerId, String cartPublicId, String deliveryAddress, java.math.BigDecimal deliveryLat, java.math.BigDecimal deliveryLng) {
         Cart cart = cartService.getCart(storeId, cartPublicId);
         if (cart.getItems().isEmpty()) {
             throw new BusinessRuleException("Cart is empty");
@@ -63,6 +63,11 @@ public class CheckoutService {
             total = total.add(oi.getTotalPrice());
         }
         order.setTotalAmount(total);
+        if (deliveryAddress != null && !deliveryAddress.isBlank()) {
+            order.setDeliveryAddress(deliveryAddress);
+            if (deliveryLat != null) order.setDeliveryLat(deliveryLat);
+            if (deliveryLng != null) order.setDeliveryLng(deliveryLng);
+        }
         order = orderRepository.save(order);
         for (CartItem ci : cart.getItems()) {
             inventoryService.deductVariantQuantity(storeId, ci.getProductVariant().getPublicId(), ci.getQuantity(), "ORDER", order.getPublicId());
@@ -74,6 +79,7 @@ public class CheckoutService {
 
     /**
      * Creates order from cart and initiates payment in one call. Payment is linked to the order (order_id saved).
+     * If deliveryAddress and deliveryLat/deliveryLng are provided, a delivery order is created when payment succeeds.
      */
     @Transactional
     public com.shopper.domain.cart.dto.CreateOrderAndPayResponse createOrderAndInitiatePayment(
@@ -82,8 +88,11 @@ public class CheckoutService {
             String cartPublicId,
             String email,
             String callbackUrl,
-            String gateway) {
-        Order order = createOrderFromCart(storeId, customerId, cartPublicId);
+            String gateway,
+            String deliveryAddress,
+            java.math.BigDecimal deliveryLat,
+            java.math.BigDecimal deliveryLng) {
+        Order order = createOrderFromCart(storeId, customerId, cartPublicId, deliveryAddress, deliveryLat, deliveryLng);
         InitiatePaymentRequest payRequest = new InitiatePaymentRequest();
         payRequest.setEmail(email);
         payRequest.setAmount(order.getTotalAmount());

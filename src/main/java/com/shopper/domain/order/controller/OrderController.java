@@ -8,6 +8,8 @@ import com.shopper.domain.onboarding.repository.StoreRepository;
 import com.shopper.domain.onboarding.service.MerchantPermissionService;
 import com.shopper.domain.onboarding.service.StoreAccessService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +38,7 @@ public class OrderController {
     public ResponseEntity<PageResponse<OrderResponse>> list(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String storePublicId,
-            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by order status", schema = @Schema(allowableValues = {"PENDING", "CONFIRMED", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"})) @RequestParam(required = false) String status,
             @PageableDefault(size = 20) Pageable pageable) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:read");

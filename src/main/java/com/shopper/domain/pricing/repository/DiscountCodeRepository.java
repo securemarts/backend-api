@@ -13,4 +13,7 @@ public interface DiscountCodeRepository extends JpaRepository<DiscountCode, Long
 
     @org.springframework.data.jpa.repository.Query("SELECT dc FROM DiscountCode dc JOIN dc.priceRule pr WHERE LOWER(dc.code) = LOWER(:code) AND pr.storeId = :storeId")
     Optional<DiscountCode> findByCodeAndStoreId(String code, Long storeId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(dc) FROM DiscountCode dc JOIN dc.priceRule pr WHERE pr.storeId = :storeId")
+    long countByStoreId(@org.springframework.data.repository.query.Param("storeId") Long storeId);
 }

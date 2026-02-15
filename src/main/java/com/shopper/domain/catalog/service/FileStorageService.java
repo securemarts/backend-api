@@ -69,6 +69,32 @@ public class FileStorageService {
         return "/api/v1/onboarding/businesses/" + businessPublicId + "/uploads/" + storedName;
     }
 
+    /**
+     * Stores rider KYC document under uploads/riders/{riderPublicId}/{uuid}_{sanitizedFilename}.
+     */
+    public String storeRiderDocument(String riderPublicId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) return null;
+        String original = file.getOriginalFilename();
+        if (original == null || original.isBlank()) original = "document";
+        String sanitized = sanitizeFilename(original);
+        String storedName = UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "_" + sanitized;
+        Path base = uploadProperties.getPathAsPath();
+        Path riderDir = base.resolve("riders").resolve(riderPublicId);
+        Files.createDirectories(riderDir);
+        Path target = riderDir.resolve(storedName);
+        file.transferTo(target.toFile());
+        return "/api/v1/rider/kyc/" + riderPublicId + "/uploads/" + storedName;
+    }
+
+    public Path resolveRiderDocument(String riderPublicId, String filename) {
+        if (riderPublicId == null || filename == null || filename.contains("..") || riderPublicId.contains("..")) return null;
+        if (!SAFE_FILENAME.matcher(filename).matches()) return null;
+        Path base = uploadProperties.getPathAsPath();
+        Path resolved = base.resolve("riders").resolve(riderPublicId).resolve(filename).normalize();
+        if (!resolved.startsWith(base)) return null;
+        return resolved;
+    }
+
     private static String sanitizeFilename(String name) {
         int last = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
         if (last >= 0) name = name.substring(last + 1);
@@ -111,18 +137,4 @@ public class FileStorageService {
         return resolved;
     }
 
-    public Path resolveFile(String storePublicId, String filename) {
-        if (filename == null || storePublicId == null || filename.contains("..") || storePublicId.contains("..")) {
-            return null;
-        }
-        if (!SAFE_FILENAME.matcher(filename).matches()) {
-            return null;
-        }
-        Path base = uploadProperties.getPathAsPath();
-        Path resolved = base.resolve(storePublicId).resolve(filename).normalize();
-        if (!resolved.startsWith(base)) {
-            return null;
-        }
-        return resolved;
-    }
 }

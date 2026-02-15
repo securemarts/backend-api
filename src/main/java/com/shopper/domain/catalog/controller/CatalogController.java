@@ -13,6 +13,7 @@ import com.shopper.domain.onboarding.service.StoreAccessService;
 import com.shopper.security.CurrentTenant;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -53,7 +54,7 @@ public class CatalogController {
     public ResponseEntity<PageResponse<ProductResponse>> list(
             @AuthenticationPrincipal String userPublicId,
             @Parameter(description = "Store public ID (products belong to this store)") @PathVariable String storePublicId,
-            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by product status", schema = @Schema(allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"})) @RequestParam(required = false) String status,
             @RequestParam(required = false) String q,
             @PageableDefault(size = 20) Pageable pageable) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
@@ -100,7 +101,7 @@ public class CatalogController {
             @RequestParam String title,
             @RequestParam(required = false) String handle,
             @RequestParam(required = false) String bodyHtml,
-            @RequestParam(required = false) String status,
+            @Parameter(description = "Product status", schema = @Schema(allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"})) @RequestParam(required = false) String status,
             @RequestParam(required = false) String seoTitle,
             @RequestParam(required = false) String seoDescription,
             @RequestParam(required = false) String collectionId,

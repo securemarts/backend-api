@@ -27,4 +27,7 @@ public class CreateDeliveryOrderRequest {
     private java.math.BigDecimal deliveryLng;
 
     private Instant scheduledAt;
+
+    /** If false, delivery is created as PENDING for riders to claim; if true (default), nearest rider is auto-assigned. */
+    private boolean autoAssign = true;
 }

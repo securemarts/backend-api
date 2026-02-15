@@ -5,6 +5,8 @@ import com.shopper.common.dto.PageResponse;
 import com.shopper.domain.logistics.dto.*;
 import com.shopper.domain.logistics.service.LogisticsService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -72,17 +74,10 @@ public class AdminLogisticsController {
     @Operation(summary = "List riders")
     @PreAuthorize("hasRole('PLATFORM_ADMIN') or hasRole('SUPERUSER') or hasRole('SUPPORT')")
     public ResponseEntity<PageResponse<RiderResponse>> listRiders(
-            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by rider status", schema = @Schema(allowableValues = {"AVAILABLE", "BUSY", "OFF_DUTY"})) @RequestParam(required = false) String status,
             @RequestParam(required = false) String zonePublicId,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(logisticsService.listRiders(status, zonePublicId, pageable));
-    }
-
-    @PostMapping("/riders")
-    @Operation(summary = "Create rider")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN') or hasRole('SUPERUSER')")
-    public ResponseEntity<RiderResponse> createRider(@Valid @RequestBody CreateRiderRequest request) {
-        return ResponseEntity.ok(logisticsService.createRider(request));
     }
 
     @GetMapping("/riders/{riderPublicId}")
@@ -99,5 +94,14 @@ public class AdminLogisticsController {
             @PathVariable String riderPublicId,
             @Valid @RequestBody UpdateRiderRequest request) {
         return ResponseEntity.ok(logisticsService.updateRider(riderPublicId, request));
+    }
+
+    @PatchMapping("/riders/{riderPublicId}/verification")
+    @Operation(summary = "Approve or reject rider KYC", description = "Set verification status to APPROVED or REJECTED. Rejection reason required when rejecting.")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or hasRole('SUPERUSER')")
+    public ResponseEntity<RiderResponse> updateRiderVerification(
+            @PathVariable String riderPublicId,
+            @Valid @RequestBody RiderVerificationRequest request) {
+        return ResponseEntity.ok(logisticsService.updateRiderVerification(riderPublicId, request));
     }
 }

@@ -12,5 +12,7 @@ public interface POSRegisterRepository extends JpaRepository<POSRegister, Long> 
 
     List<POSRegister> findByStoreId(Long storeId);
 
+    long countByStoreId(Long storeId);
+
     Optional<POSRegister> findByStoreIdAndPublicId(Long storeId, String publicId);
 }

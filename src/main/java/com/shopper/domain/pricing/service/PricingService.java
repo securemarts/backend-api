@@ -9,6 +9,7 @@ import com.shopper.domain.pricing.entity.PriceRule;
 import com.shopper.domain.pricing.repository.DiscountCodeRepository;
 import com.shopper.domain.pricing.repository.PriceRuleRepository;
 import com.shopper.domain.onboarding.repository.StoreRepository;
+import com.shopper.domain.onboarding.service.SubscriptionLimitsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class PricingService {
     private final PriceRuleRepository priceRuleRepository;
     private final DiscountCodeRepository discountCodeRepository;
     private final StoreRepository storeRepository;
+    private final SubscriptionLimitsService subscriptionLimitsService;
 
     @Transactional(readOnly = true)
     public List<PriceRuleResponse> listPriceRules(Long storeId) {
@@ -42,8 +44,11 @@ public class PricingService {
 
     @Transactional
     public PriceRuleResponse createPriceRule(Long storeId, PriceRuleRequest request) {
-        if (!storeRepository.existsById(storeId)) {
-            throw new ResourceNotFoundException("Store", String.valueOf(storeId));
+        var store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        var limits = subscriptionLimitsService.getLimitsForBusiness(store.getBusiness());
+        if (priceRuleRepository.countByStoreId(storeId) >= limits.getMaxPriceRules()) {
+            throw new BusinessRuleException("Price rule limit reached for your plan (" + limits.getMaxPriceRules() + "). Upgrade to add more.");
         }
         PriceRule rule = new PriceRule();
         rule.setStoreId(storeId);
@@ -76,6 +81,12 @@ public class PricingService {
 
     @Transactional
     public DiscountCode addDiscountCode(Long storeId, String priceRulePublicId, com.shopper.domain.pricing.dto.DiscountCodeRequest request) {
+        var store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        var limits = subscriptionLimitsService.getLimitsForBusiness(store.getBusiness());
+        if (discountCodeRepository.countByStoreId(storeId) >= limits.getMaxDiscountCodes()) {
+            throw new BusinessRuleException("Discount code limit reached for your plan (" + limits.getMaxDiscountCodes() + "). Upgrade to add more.");
+        }
         PriceRule rule = priceRuleRepository.findByPublicIdAndStoreId(priceRulePublicId, storeId)
                 .orElseThrow(() -> new ResourceNotFoundException("PriceRule", priceRulePublicId));
         String code = request.getCode().trim().toUpperCase();

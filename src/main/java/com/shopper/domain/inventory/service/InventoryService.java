@@ -12,7 +12,10 @@ import com.shopper.domain.inventory.entity.Location;
 import com.shopper.domain.inventory.repository.InventoryItemRepository;
 import com.shopper.domain.inventory.repository.InventoryMovementRepository;
 import com.shopper.domain.inventory.repository.LocationRepository;
+import com.shopper.domain.onboarding.entity.Business;
+import com.shopper.domain.onboarding.entity.Store;
 import com.shopper.domain.onboarding.repository.StoreRepository;
+import com.shopper.domain.onboarding.service.SubscriptionLimitsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ public class InventoryService {
     private final InventoryMovementRepository inventoryMovementRepository;
     private final ProductVariantRepository productVariantRepository;
     private final StoreRepository storeRepository;
+    private final SubscriptionLimitsService subscriptionLimitsService;
 
     @Transactional(readOnly = true)
     public List<Location> listLocations(Long storeId) {
@@ -37,7 +41,14 @@ public class InventoryService {
 
     @Transactional
     public Location createLocation(Long storeId, LocationRequest request) {
-        ensureStoreExists(storeId);
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        Business business = store.getBusiness();
+        var limits = subscriptionLimitsService.getLimitsForBusiness(business);
+        long locationCount = locationRepository.countByStoreId(storeId);
+        if (locationCount >= limits.getMaxLocationsPerStore()) {
+            throw new BusinessRuleException("Location limit reached for your plan (" + limits.getMaxLocationsPerStore() + " per store). Upgrade to add more locations.");
+        }
         Location loc = new Location();
         loc.setStoreId(storeId);
         loc.setName(request.getName().trim());

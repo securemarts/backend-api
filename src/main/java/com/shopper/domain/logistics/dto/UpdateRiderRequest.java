@@ -20,6 +20,7 @@ public class UpdateRiderRequest {
     @Size(max = 100)
     private String lastName;
 
+    @Schema(description = "Rider status", allowableValues = {"AVAILABLE", "BUSY", "OFF_DUTY"})
     private String status;
     private String zonePublicId;
 }

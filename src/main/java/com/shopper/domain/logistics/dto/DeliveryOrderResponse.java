@@ -20,6 +20,7 @@ public class DeliveryOrderResponse {
     private String destinationHubPublicId;
     private String pickupAddress;
     private String deliveryAddress;
+    @Schema(description = "Delivery status", allowableValues = {"PENDING", "ASSIGNED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "FAILED", "RETURNED"})
     private String status;
     private String riderPublicId;
     private BigDecimal pricingAmount;

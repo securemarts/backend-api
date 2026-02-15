@@ -19,6 +19,7 @@ public class ProductResponse {
     private String title;
     private String handle;
     private String bodyHtml;
+    @Schema(description = "Product status", allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"})
     private String status;
     private String seoTitle;
     private String seoDescription;

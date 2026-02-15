@@ -15,7 +15,7 @@ public class CashMovementRequest {
     @DecimalMin("0.01")
     private BigDecimal amount;
 
-    @Schema(description = "WITHDRAWAL or DEPOSIT")
+    @Schema(description = "Movement type", allowableValues = {"OPENING", "SALE", "WITHDRAWAL", "DEPOSIT", "CLOSING"})
     private String type;
 
     private String reason;

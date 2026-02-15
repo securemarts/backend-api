@@ -12,7 +12,9 @@ import com.shopper.domain.admin.repository.AdminRepository;
 import com.shopper.domain.admin.repository.PlatformRoleRepository;
 import com.shopper.domain.onboarding.dto.BusinessResponse;
 import com.shopper.domain.onboarding.entity.Business;
+import com.shopper.domain.onboarding.entity.SubscriptionHistory;
 import com.shopper.domain.onboarding.repository.BusinessRepository;
+import com.shopper.domain.onboarding.repository.SubscriptionHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +39,7 @@ public class AdminService {
     private final AdminInviteRepository adminInviteRepository;
     private final PlatformRoleRepository platformRoleRepository;
     private final BusinessRepository businessRepository;
+    private final SubscriptionHistoryRepository subscriptionHistoryRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
@@ -67,6 +70,41 @@ public class AdminService {
         }
         business.setVerificationStatus(newStatus);
         businessRepository.save(business);
+        return BusinessResponse.from(business);
+    }
+
+    @Transactional
+    public BusinessResponse updateBusinessSubscription(String businessPublicId, AdminSubscriptionUpdateRequest request) {
+        Business business = businessRepository.findByPublicId(businessPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business", businessPublicId));
+        if (request.getPlan() != null && !request.getPlan().isBlank()) {
+            try {
+                business.setSubscriptionPlan(Business.SubscriptionPlan.valueOf(request.getPlan().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new BusinessRuleException("Invalid plan. Use BASIC, PRO, or ENTERPRISE");
+            }
+        }
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            try {
+                business.setSubscriptionStatus(Business.SubscriptionStatus.valueOf(request.getStatus().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new BusinessRuleException("Invalid status. Use NONE, TRIALING, ACTIVE, PAST_DUE, or CANCELLED");
+            }
+        }
+        if (request.getTrialEndsAt() != null) {
+            business.setTrialEndsAt(request.getTrialEndsAt());
+        }
+        if (request.getCurrentPeriodEndsAt() != null) {
+            business.setCurrentPeriodEndsAt(request.getCurrentPeriodEndsAt());
+        }
+        business = businessRepository.save(business);
+        SubscriptionHistory h = new SubscriptionHistory();
+        h.setBusinessId(business.getId());
+        h.setPlan(business.getSubscriptionPlan().name());
+        h.setEventType(SubscriptionHistory.EventType.UPDATED.name());
+        h.setPeriodEnd(business.getCurrentPeriodEndsAt());
+        h.setSource(SubscriptionHistory.Source.ADMIN.name());
+        subscriptionHistoryRepository.save(h);
         return BusinessResponse.from(business);
     }
 

@@ -24,7 +24,7 @@ public class ProductRequest {
     @Schema(description = "HTML description")
     private String bodyHtml;
 
-    @Schema(description = "Status", example = "ACTIVE")
+    @Schema(description = "Product status", allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"}, example = "DRAFT")
     private String status = "DRAFT";
 
     @Size(max = 70)

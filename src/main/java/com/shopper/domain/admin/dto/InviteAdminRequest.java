@@ -20,6 +20,6 @@ public class InviteAdminRequest {
     private String fullName;
 
     @NotNull
-    @Schema(description = "Role: SUPERUSER, PLATFORM_ADMIN, SUPPORT", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Admin role", requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"SUPERUSER", "PLATFORM_ADMIN", "SUPPORT"})
     private String role;
 }

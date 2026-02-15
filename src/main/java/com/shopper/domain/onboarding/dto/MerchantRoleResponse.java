@@ -2,13 +2,17 @@ package com.shopper.domain.onboarding.dto;
 
 import com.shopper.domain.onboarding.entity.MerchantRole;
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "Merchant (store staff) role")
 public class MerchantRoleResponse {
 

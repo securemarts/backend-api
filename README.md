@@ -39,6 +39,19 @@ src/main/java/com/shopper/
 
 ## Running the Application
 
+### Quick start with Make
+
+If you have `make` installed:
+
+```bash
+make          # show all commands
+make start    # start app + Postgres in Docker (recommended)
+make logs     # follow logs
+make stop     # stop containers
+```
+
+See the [Makefile](Makefile) for all targets (`make run`, `make run-local`, `make test`, etc.).
+
 ### 1. Prerequisites
 
 - **Java 17** or higher (`java -version`)

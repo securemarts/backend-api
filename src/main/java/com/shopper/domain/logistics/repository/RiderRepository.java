@@ -27,5 +27,8 @@ public interface RiderRepository extends JpaRepository<Rider, Long> {
     /** Chowdeck: available riders in zone for nearest-rider dispatch */
     List<Rider> findByZone_IdAndAvailableTrue(Long zoneId);
 
+    /** Available, verified riders in zone (for dispatch) */
+    List<Rider> findByZone_IdAndAvailableTrueAndVerificationStatus(Long zoneId, Rider.VerificationStatus verificationStatus);
+
     Page<Rider> findByZone_Id(Long zoneId, Pageable pageable);
 }

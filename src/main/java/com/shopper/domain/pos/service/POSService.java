@@ -9,6 +9,7 @@ import com.shopper.domain.inventory.repository.InventoryItemRepository;
 import com.shopper.domain.inventory.repository.InventoryMovementRepository;
 import com.shopper.domain.inventory.repository.LocationRepository;
 import com.shopper.domain.onboarding.repository.StoreRepository;
+import com.shopper.domain.onboarding.service.SubscriptionLimitsService;
 import com.shopper.domain.pos.dto.*;
 import com.shopper.domain.pos.entity.*;
 import com.shopper.domain.pos.repository.*;
@@ -30,6 +31,7 @@ public class POSService {
     private final CashMovementRepository cashMovementRepository;
     private final SyncLogRepository syncLogRepository;
     private final StoreRepository storeRepository;
+    private final SubscriptionLimitsService subscriptionLimitsService;
     private final ProductVariantRepository productVariantRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final InventoryMovementRepository inventoryMovementRepository;
@@ -37,6 +39,15 @@ public class POSService {
 
     @Transactional
     public POSRegisterResponse createRegister(Long storeId, CreatePOSRegisterRequest request) {
+        var store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        var limits = subscriptionLimitsService.getLimitsForBusiness(store.getBusiness());
+        if (limits.getMaxPosRegisters() == 0) {
+            throw new BusinessRuleException("Your Pro trial has ended. Subscribe to Pro to use POS.");
+        }
+        if (registerRepository.countByStoreId(storeId) >= limits.getMaxPosRegisters()) {
+            throw new BusinessRuleException("POS register limit reached for your plan (" + limits.getMaxPosRegisters() + "). Upgrade for more.");
+        }
         POSRegister r = new POSRegister();
         r.setStoreId(storeId);
         r.setName(request.getName());
@@ -63,6 +74,11 @@ public class POSService {
 
     @Transactional
     public POSSessionResponse openSession(Long storeId, String registerPublicId, OpenSessionRequest request) {
+        var store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        if (!subscriptionLimitsService.isPosEnabled(subscriptionLimitsService.getEffectivePlan(store.getBusiness()))) {
+            throw new BusinessRuleException("Your Pro trial has ended. Subscribe to Pro to use POS.");
+        }
         POSRegister register = registerRepository.findByStoreIdAndPublicId(storeId, registerPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("POSRegister", registerPublicId));
         if (!register.isActive()) throw new BusinessRuleException("Register is not active");

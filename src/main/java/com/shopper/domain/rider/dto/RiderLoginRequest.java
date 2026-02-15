@@ -1,17 +1,17 @@
 package com.shopper.domain.rider.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-@Schema(description = "Rider login (phone or email + password)")
+@Schema(description = "Rider login (email + password)")
 public class RiderLoginRequest {
 
-    @Schema(description = "Phone number (optional if email provided)")
-    private String phone;
-
-    @Schema(description = "Email (optional if phone provided)")
+    @NotBlank
+    @Email
+    @Schema(description = "Email", example = "rider@example.com", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 
     @NotBlank

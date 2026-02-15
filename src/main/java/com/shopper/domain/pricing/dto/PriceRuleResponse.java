@@ -17,6 +17,7 @@ public class PriceRuleResponse {
 
     private String publicId;
     private String title;
+    @Schema(description = "Discount value type", allowableValues = {"FIXED_AMOUNT", "PERCENTAGE"})
     private String valueType;
     private BigDecimal valueAmount;
     private BigDecimal valuePercent;

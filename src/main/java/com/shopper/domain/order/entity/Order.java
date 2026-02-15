@@ -37,6 +37,16 @@ public class Order extends BaseEntity {
     @Column(nullable = false, length = 3)
     private String currency = "NGN";
 
+    /** Optional delivery address at checkout; when set and payment succeeds, delivery order is created. */
+    @Column(name = "delivery_address", length = 500)
+    private String deliveryAddress;
+
+    @Column(name = "delivery_lat", precision = 10, scale = 7)
+    private BigDecimal deliveryLat;
+
+    @Column(name = "delivery_lng", precision = 10, scale = 7)
+    private BigDecimal deliveryLng;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 

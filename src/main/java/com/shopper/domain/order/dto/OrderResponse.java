@@ -17,6 +17,7 @@ public class OrderResponse {
 
     private String publicId;
     private String orderNumber;
+    @Schema(description = "Order status", allowableValues = {"PENDING", "CONFIRMED", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"})
     private String status;
     private BigDecimal totalAmount;
     private String currency;

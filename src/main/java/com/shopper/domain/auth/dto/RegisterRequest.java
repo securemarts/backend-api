@@ -1,5 +1,6 @@
 package com.shopper.domain.auth.dto;
 
+import com.shopper.domain.auth.entity.UserType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -36,6 +37,6 @@ public class RegisterRequest {
     private String phone;
 
     @NotNull
-    @Schema(description = "User type", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String userType; // MERCHANT_OWNER, CUSTOMER, etc.
+    @Schema(description = "User type", requiredMode = Schema.RequiredMode.REQUIRED, implementation = UserType.class)
+    private UserType userType;
 }

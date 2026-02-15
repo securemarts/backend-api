@@ -18,11 +18,15 @@ public class RiderResponse {
     private String email;
     private String firstName;
     private String lastName;
+    @Schema(description = "Rider status", allowableValues = {"AVAILABLE", "BUSY", "OFF_DUTY"})
     private String status;
     private String zonePublicId;
     private BigDecimal currentLat;
     private BigDecimal currentLng;
     private boolean available;
+    @Schema(description = "KYC verification status", allowableValues = {"PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"})
+    private String verificationStatus;
+    private String rejectionReason;
     private Instant createdAt;
 
     public static RiderResponse from(Rider r) {
@@ -37,6 +41,8 @@ public class RiderResponse {
                 .currentLat(r.getCurrentLat())
                 .currentLng(r.getCurrentLng())
                 .available(r.isAvailable())
+                .verificationStatus(r.getVerificationStatus().name())
+                .rejectionReason(r.getRejectionReason())
                 .createdAt(r.getCreatedAt())
                 .build();
     }

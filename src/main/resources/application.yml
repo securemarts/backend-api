@@ -64,6 +64,13 @@ app:
       public-key: ${APP_PAYMENT_PAYSTACK_PUBLIC_KEY:pk_test_32b80826f25b92fa82e66a6389fef92bf626cc95}
     flutterwave:
       secret-key: ${APP_PAYMENT_FLUTTERWAVE_SECRET_KEY:}
+  subscription:
+    paystack:
+      # Amount in kobo for first-time subscription (when plan has no Paystack plan code or customer has no auth)
+      pro-monthly-amount-kobo: ${APP_SUBSCRIPTION_PRO_MONTHLY_KOBO:2000000}
+      pro-annual-amount-kobo: ${APP_SUBSCRIPTION_PRO_ANNUAL_KOBO:20000000}
+      enterprise-monthly-amount-kobo: ${APP_SUBSCRIPTION_ENTERPRISE_MONTHLY_KOBO:5000000}
+      enterprise-annual-amount-kobo: ${APP_SUBSCRIPTION_ENTERPRISE_ANNUAL_KOBO:50000000}
 
 springdoc:
   api-docs:

@@ -11,4 +11,6 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     Optional<Location> findByPublicIdAndStoreId(String publicId, Long storeId);
 
     List<Location> findByStoreId(Long storeId);
+
+    long countByStoreId(Long storeId);
 }

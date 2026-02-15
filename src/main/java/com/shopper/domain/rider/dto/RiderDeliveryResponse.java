@@ -18,6 +18,7 @@ public class RiderDeliveryResponse {
     private String storeId; // store publicId for display
     private String pickupAddress;
     private String deliveryAddress;
+    @Schema(description = "Delivery status", allowableValues = {"PENDING", "ASSIGNED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "FAILED", "RETURNED"})
     private String status;
     private BigDecimal pricingAmount;
     private String pricingCurrency;

@@ -51,9 +51,26 @@ public class Rider extends BaseEntity {
     @Column(name = "is_available", nullable = false)
     private boolean available = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status", nullable = false, length = 30)
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
     public enum RiderStatus {
         AVAILABLE,
         BUSY,
         OFF_DUTY
+    }
+
+    public enum VerificationStatus {
+        PENDING,
+        UNDER_REVIEW,
+        APPROVED,
+        REJECTED
     }
 }

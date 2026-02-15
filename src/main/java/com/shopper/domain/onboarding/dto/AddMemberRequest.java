@@ -14,6 +14,6 @@ public class AddMemberRequest {
     private String userPublicId;
 
     @NotNull
-    @Schema(description = "Role: MANAGER, CASHIER, STAFF", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Merchant role code", requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"MANAGER", "CASHIER", "STAFF"})
     private String role;
 }

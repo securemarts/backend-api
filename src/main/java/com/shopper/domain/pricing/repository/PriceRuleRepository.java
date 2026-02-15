@@ -11,4 +11,6 @@ public interface PriceRuleRepository extends JpaRepository<PriceRule, Long> {
     Optional<PriceRule> findByPublicIdAndStoreId(String publicId, Long storeId);
 
     List<PriceRule> findByStoreId(Long storeId);
+
+    long countByStoreId(Long storeId);
 }

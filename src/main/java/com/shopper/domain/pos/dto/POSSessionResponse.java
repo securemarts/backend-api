@@ -19,6 +19,7 @@ public class POSSessionResponse {
     private Instant closedAt;
     private BigDecimal openingCashAmount;
     private BigDecimal closingCashAmount;
+    @Schema(description = "Session status", allowableValues = {"OPEN", "CLOSED"})
     private String status;
     private String openedBy;
     private Instant createdAt;

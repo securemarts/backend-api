@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,6 +34,26 @@ public class Business extends BaseEntity {
     @Column(name = "verification_status", nullable = false, length = 30)
     private VerificationStatus verificationStatus = VerificationStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_plan", nullable = false, length = 20)
+    private SubscriptionPlan subscriptionPlan = SubscriptionPlan.BASIC;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_status", nullable = false, length = 20)
+    private SubscriptionStatus subscriptionStatus = SubscriptionStatus.NONE;
+
+    @Column(name = "current_period_ends_at")
+    private Instant currentPeriodEndsAt;
+
+    @Column(name = "trial_ends_at")
+    private Instant trialEndsAt;
+
+    @Column(name = "paystack_subscription_code", length = 100)
+    private String paystackSubscriptionCode;
+
+    @Column(name = "paystack_customer_code", length = 100)
+    private String paystackCustomerCode;
+
     @OneToMany(mappedBy = "business", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Store> stores = new ArrayList<>();
 
@@ -50,5 +71,19 @@ public class Business extends BaseEntity {
         UNDER_REVIEW,
         APPROVED,
         REJECTED
+    }
+
+    public enum SubscriptionPlan {
+        BASIC,
+        PRO,
+        ENTERPRISE
+    }
+
+    public enum SubscriptionStatus {
+        NONE,
+        TRIALING,
+        ACTIVE,
+        PAST_DUE,
+        CANCELLED
     }
 }

@@ -2,6 +2,9 @@ package com.shopper.domain.payment.service;
 
 import com.shopper.common.exception.BusinessRuleException;
 import com.shopper.common.exception.ResourceNotFoundException;
+import com.shopper.domain.logistics.dto.CreateDeliveryOrderRequest;
+import com.shopper.domain.logistics.service.LogisticsService;
+import com.shopper.domain.order.entity.Order;
 import com.shopper.domain.payment.dto.InitiatePaymentRequest;
 import com.shopper.domain.payment.dto.PaymentResponse;
 import com.shopper.domain.payment.entity.PaymentTransaction;
@@ -28,6 +31,7 @@ public class PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final StoreRepository storeRepository;
     private final OrderRepository orderRepository;
+    private final LogisticsService logisticsService;
     private final List<PaymentGateway> gateways;
     private Map<String, PaymentGateway> gatewayByName;
 
@@ -84,6 +88,27 @@ public class PaymentService {
         PaymentGateway.VerifyResult vr = gateway.verify(txn.getGatewayReference());
         if (vr.isSuccess() && ("success".equalsIgnoreCase(vr.getStatus()) || "successful".equalsIgnoreCase(vr.getStatus()))) {
             txn.setStatus(PaymentTransaction.PaymentStatus.SUCCESS);
+            if (txn.getOrderId() != null) {
+                orderRepository.findById(txn.getOrderId()).ifPresent(order -> {
+                    order.setStatus(Order.OrderStatus.PAID);
+                    orderRepository.save(order);
+                    if (order.getDeliveryAddress() != null && !order.getDeliveryAddress().isBlank()
+                            && order.getDeliveryLat() != null && order.getDeliveryLng() != null) {
+                        CreateDeliveryOrderRequest deliveryRequest = new CreateDeliveryOrderRequest();
+                        deliveryRequest.setOrderPublicId(order.getPublicId());
+                        deliveryRequest.setDeliveryAddress(order.getDeliveryAddress());
+                        deliveryRequest.setDeliveryLat(order.getDeliveryLat());
+                        deliveryRequest.setDeliveryLng(order.getDeliveryLng());
+                        deliveryRequest.setAutoAssign(true);
+                        try {
+                            logisticsService.createDeliveryOrder(order.getStoreId(), deliveryRequest);
+                        } catch (Exception e) {
+                            // Log but do not fail verify; merchant can create delivery manually
+                            org.slf4j.LoggerFactory.getLogger(PaymentService.class).warn("Auto-create delivery on payment success failed: {}", e.getMessage());
+                        }
+                    }
+                });
+            }
         } else if (!vr.isSuccess()) {
             txn.setStatus(PaymentTransaction.PaymentStatus.FAILED);
         }

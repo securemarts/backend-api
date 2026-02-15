@@ -30,6 +30,6 @@ public class InitiatePaymentRequest {
     @Schema(description = "Callback URL after payment")
     private String callbackUrl;
 
-    @Schema(description = "Gateway: PAYSTACK or FLUTTERWAVE")
+    @Schema(description = "Payment gateway", allowableValues = {"PAYSTACK", "FLUTTERWAVE"})
     private String gateway = "PAYSTACK";
 }

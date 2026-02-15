@@ -24,9 +24,9 @@ public class CreateAdminRequest {
     @Schema(description = "Full name", requiredMode = Schema.RequiredMode.REQUIRED)
     private String fullName;
 
-    @Schema(description = "Single role (use when not providing roles list): SUPERUSER, PLATFORM_ADMIN, SUPPORT")
+    @Schema(description = "Single admin role (use when not providing roles list)", allowableValues = {"SUPERUSER", "PLATFORM_ADMIN", "SUPPORT"})
     private String role;
 
-    @Schema(description = "Multiple roles (RBAC). If provided, overrides role.")
+    @Schema(description = "Multiple roles (RBAC). If provided, overrides role. Values: SUPERUSER, PLATFORM_ADMIN, SUPPORT")
     private List<String> roles;
 }

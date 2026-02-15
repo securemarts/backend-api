@@ -12,6 +12,8 @@ public interface BusinessMemberRepository extends JpaRepository<BusinessMember, 
 
     List<BusinessMember> findByBusinessIdOrderByCreatedAtDesc(Long businessId);
 
+    long countByBusinessId(Long businessId);
+
     Optional<BusinessMember> findByBusinessIdAndEmail(Long businessId, String email);
 
     Optional<BusinessMember> findByBusinessIdAndUserId(Long businessId, Long userId);

@@ -29,19 +29,34 @@ public class RiderAuthService {
     private final JwtProperties jwtProperties;
 
     @Transactional
-    public TokenResponse login(com.shopper.domain.rider.dto.RiderLoginRequest request) {
-        Rider rider;
-        if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            rider = riderRepository.findByPhone(request.getPhone())
-                    .orElseThrow(() -> new BusinessRuleException("Invalid phone or password"));
-        } else if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            rider = riderRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new BusinessRuleException("Invalid email or password"));
-        } else {
-            throw new BusinessRuleException("Phone or email is required");
+    public TokenResponse register(com.shopper.domain.rider.dto.RiderRegisterRequest request) {
+        if (riderRepository.existsByEmail(request.getEmail())) {
+            throw new BusinessRuleException("Email already registered");
         }
+        if (request.getPhone() != null && !request.getPhone().isBlank() && riderRepository.existsByPhone(request.getPhone())) {
+            throw new BusinessRuleException("Phone already registered");
+        }
+        Rider rider = new Rider();
+        rider.setEmail(request.getEmail().trim().toLowerCase());
+        rider.setPhone(request.getPhone() != null ? request.getPhone().trim() : null);
+        rider.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        rider.setFirstName(request.getFirstName().trim());
+        rider.setLastName(request.getLastName().trim());
+        rider.setVerificationStatus(Rider.VerificationStatus.PENDING);
+        rider.setEmailVerified(false);
+        rider = riderRepository.save(rider);
+        com.shopper.domain.rider.dto.RiderLoginRequest loginReq = new com.shopper.domain.rider.dto.RiderLoginRequest();
+        loginReq.setEmail(request.getEmail());
+        loginReq.setPassword(request.getPassword());
+        return login(loginReq);
+    }
+
+    @Transactional
+    public TokenResponse login(com.shopper.domain.rider.dto.RiderLoginRequest request) {
+        Rider rider = riderRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BusinessRuleException("Invalid email or password"));
         if (!passwordEncoder.matches(request.getPassword(), rider.getPasswordHash())) {
-            throw new BusinessRuleException("Invalid phone or password");
+            throw new BusinessRuleException("Invalid email or password");
         }
         String accessToken = jwtService.createAccessToken(
                 rider.getPublicId(),

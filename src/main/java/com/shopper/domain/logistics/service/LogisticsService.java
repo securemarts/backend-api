@@ -9,6 +9,7 @@ import com.shopper.domain.logistics.repository.*;
 import com.shopper.domain.onboarding.entity.StoreProfile;
 import com.shopper.domain.onboarding.repository.StoreProfileRepository;
 import com.shopper.domain.onboarding.repository.StoreRepository;
+import com.shopper.domain.onboarding.service.SubscriptionLimitsService;
 import com.shopper.domain.order.entity.Order;
 import com.shopper.domain.logistics.event.DeliveryStatusChangedEvent;
 import com.shopper.domain.order.repository.OrderRepository;
@@ -36,6 +37,7 @@ public class LogisticsService {
     private final OrderRepository orderRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final SubscriptionLimitsService subscriptionLimitsService;
 
     /** Assign a store to a service zone (required for delivery creation) */
     @Transactional
@@ -108,6 +110,12 @@ public class LogisticsService {
     // --- Delivery orders (Chowdeck: zone check → fee → nearest rider) ---
     @Transactional
     public DeliveryOrderResponse createDeliveryOrder(Long storeId, CreateDeliveryOrderRequest request) {
+        var store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        var effectivePlan = subscriptionLimitsService.getEffectivePlan(store.getBusiness());
+        if (!subscriptionLimitsService.isDeliveryEnabled(effectivePlan)) {
+            throw new IllegalArgumentException("Your Pro trial has ended. Subscribe to Pro to continue using delivery.");
+        }
         Order order = orderRepository.findByPublicId(request.getOrderPublicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order", request.getOrderPublicId()));
         if (!order.getStoreId().equals(storeId)) {
@@ -154,25 +162,6 @@ public class LogisticsService {
                 zone.getPerKmFee().multiply(BigDecimal.valueOf(deliveryDistanceKm)).setScale(4, RoundingMode.HALF_UP)
         );
 
-        // Step 3: Nearest available rider in zone
-        List<Rider> availableRiders = riderRepository.findByZone_IdAndAvailableTrue(zone.getId());
-        if (availableRiders.isEmpty()) {
-            throw new IllegalArgumentException("No available riders in zone");
-        }
-        Rider nearest = null;
-        double minDistance = Double.MAX_VALUE;
-        for (Rider rider : availableRiders) {
-            if (rider.getCurrentLat() == null || rider.getCurrentLng() == null) continue;
-            double d = GeoUtils.distanceKm(rider.getCurrentLat(), rider.getCurrentLng(), storeLat, storeLng);
-            if (d < minDistance) {
-                minDistance = d;
-                nearest = rider;
-            }
-        }
-        if (nearest == null) {
-            throw new IllegalArgumentException("No riders in zone with location set");
-        }
-
         DeliveryOrder d = new DeliveryOrder();
         d.setOrderId(order.getId());
         d.setStoreId(storeId);
@@ -183,14 +172,40 @@ public class LogisticsService {
         d.setPricingAmount(fee);
         d.setPricingCurrency("NGN");
         d.setScheduledAt(request.getScheduledAt());
-        d.setRider(nearest);
-        d.setStatus(DeliveryOrder.DeliveryStatus.ASSIGNED);
-        nearest.setAvailable(false);
+
+        if (request.isAutoAssign()) {
+            // Step 3: Nearest available rider in zone
+            List<Rider> availableRiders = riderRepository.findByZone_IdAndAvailableTrueAndVerificationStatus(zone.getId(), Rider.VerificationStatus.APPROVED);
+            if (availableRiders.isEmpty()) {
+                throw new IllegalArgumentException("No available riders in zone");
+            }
+            Rider nearest = null;
+            double minDistance = Double.MAX_VALUE;
+            for (Rider rider : availableRiders) {
+                if (rider.getCurrentLat() == null || rider.getCurrentLng() == null) continue;
+                double dist = GeoUtils.distanceKm(rider.getCurrentLat(), rider.getCurrentLng(), storeLat, storeLng);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    nearest = rider;
+                }
+            }
+            if (nearest == null) {
+                throw new IllegalArgumentException("No riders in zone with location set");
+            }
+            d.setRider(nearest);
+            d.setStatus(DeliveryOrder.DeliveryStatus.ASSIGNED);
+            nearest.setAvailable(false);
+        } else {
+            d.setStatus(DeliveryOrder.DeliveryStatus.PENDING);
+        }
+
         d = deliveryOrderRepository.save(d);
 
         DeliveryOrderResponse resp = DeliveryOrderResponse.from(d);
         resp.setOrderId(order.getPublicId());
-        eventPublisher.publishEvent(new DeliveryStatusChangedEvent(this, d.getPublicId(), "PENDING", "ASSIGNED", nearest.getPublicId()));
+        if (d.getRider() != null) {
+            eventPublisher.publishEvent(new DeliveryStatusChangedEvent(this, d.getPublicId(), "PENDING", "ASSIGNED", d.getRider().getPublicId()));
+        }
         return resp;
     }
 
@@ -299,32 +314,6 @@ public class LogisticsService {
         return PageResponse.of(page.map(RiderResponse::from));
     }
 
-    @Transactional
-    public RiderResponse createRider(CreateRiderRequest request) {
-        if ((request.getPhone() == null || request.getPhone().isBlank()) &&
-                (request.getEmail() == null || request.getEmail().isBlank())) {
-            throw new IllegalArgumentException("Either phone or email is required");
-        }
-        if (request.getPhone() != null && riderRepository.existsByPhone(request.getPhone())) {
-            throw new IllegalArgumentException("Rider with this phone already exists");
-        }
-        if (request.getEmail() != null && !request.getEmail().isBlank() && riderRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Rider with this email already exists");
-        }
-        Rider rider = new Rider();
-        rider.setPhone(request.getPhone());
-        rider.setEmail(request.getEmail());
-        rider.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        rider.setFirstName(request.getFirstName());
-        rider.setLastName(request.getLastName());
-        if (request.getZonePublicId() != null && !request.getZonePublicId().isBlank()) {
-            rider.setZone(serviceZoneRepository.findByPublicId(request.getZonePublicId())
-                    .orElseThrow(() -> new ResourceNotFoundException("ServiceZone", request.getZonePublicId())));
-        }
-        rider = riderRepository.save(rider);
-        return RiderResponse.from(rider);
-    }
-
     @Transactional(readOnly = true)
     public RiderResponse getRider(String publicId) {
         Rider rider = riderRepository.findByPublicId(publicId)
@@ -352,6 +341,23 @@ public class LogisticsService {
                         .orElseThrow(() -> new ResourceNotFoundException("ServiceZone", request.getZonePublicId())));
             }
         }
+        rider = riderRepository.save(rider);
+        return RiderResponse.from(rider);
+    }
+
+    @Transactional
+    public RiderResponse updateRiderVerification(String riderPublicId, com.shopper.domain.logistics.dto.RiderVerificationRequest request) {
+        Rider rider = riderRepository.findByPublicId(riderPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Rider", riderPublicId));
+        Rider.VerificationStatus status = Rider.VerificationStatus.valueOf(request.getStatus());
+        if (status != Rider.VerificationStatus.APPROVED && status != Rider.VerificationStatus.REJECTED) {
+            throw new IllegalArgumentException("Status must be APPROVED or REJECTED");
+        }
+        if (status == Rider.VerificationStatus.REJECTED && (request.getRejectionReason() == null || request.getRejectionReason().isBlank())) {
+            throw new IllegalArgumentException("Rejection reason is required when rejecting");
+        }
+        rider.setVerificationStatus(status);
+        rider.setRejectionReason(status == Rider.VerificationStatus.REJECTED ? request.getRejectionReason() : null);
         rider = riderRepository.save(rider);
         return RiderResponse.from(rider);
     }

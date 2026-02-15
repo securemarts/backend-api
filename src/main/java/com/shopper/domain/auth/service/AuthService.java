@@ -53,12 +53,7 @@ public class AuthService {
         if (request.getPhone() != null && !request.getPhone().isBlank() && userRepository.existsByPhone(request.getPhone())) {
             throw new BusinessRuleException("Phone already registered");
         }
-        UserType userType;
-        try {
-            userType = UserType.valueOf(request.getUserType());
-        } catch (IllegalArgumentException e) {
-            throw new BusinessRuleException("Invalid user type");
-        }
+        UserType userType = request.getUserType();
         User user = new User();
         user.setEmail(request.getEmail().toLowerCase());
         user.setPhone(request.getPhone() != null ? request.getPhone().trim() : null);

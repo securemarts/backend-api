@@ -9,7 +9,7 @@ import lombok.Data;
 public class BusinessVerificationUpdateRequest {
 
     @NotBlank
-    @Schema(description = "Status: APPROVED or REJECTED", requiredMode = Schema.RequiredMode.REQUIRED, example = "APPROVED")
+    @Schema(description = "Verification status", requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"APPROVED", "REJECTED"}, example = "APPROVED")
     private String status;
 
     @Schema(description = "Rejection reason (required when status is REJECTED)")

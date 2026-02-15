@@ -8,6 +8,7 @@ import com.shopper.domain.catalog.dto.ProductResponse;
 import com.shopper.domain.catalog.entity.*;
 import com.shopper.domain.catalog.repository.*;
 import com.shopper.domain.onboarding.repository.StoreRepository;
+import com.shopper.domain.onboarding.service.SubscriptionLimitsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
@@ -29,6 +30,7 @@ public class CatalogService {
     private final CollectionRepository collectionRepository;
     private final TagRepository tagRepository;
     private final StoreRepository storeRepository;
+    private final SubscriptionLimitsService subscriptionLimitsService;
 
     private static final Set<String> PRODUCT_SORT_FIELDS = Set.of(
             "id", "publicId", "title", "handle", "status", "createdAt", "updatedAt");
@@ -91,8 +93,13 @@ public class CatalogService {
     @Transactional
     @CacheEvict(value = "products", key = "#storeId")
     public ProductResponse createProduct(Long storeId, ProductRequest request) {
-        ensureStoreExists(storeId);
-        Long businessId = resolveBusinessIdFromStoreId(storeId);
+        var store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        var limits = subscriptionLimitsService.getLimitsForBusiness(store.getBusiness());
+        if (productRepository.countByStoreIdAndDeletedAtIsNull(storeId) >= limits.getMaxProducts()) {
+            throw new BusinessRuleException("Product limit reached for your plan (" + limits.getMaxProducts() + "). Upgrade to add more products.");
+        }
+        Long businessId = store.getBusiness().getId();
         if (request.getHandle() != null && !request.getHandle().isBlank()
                 && productRepository.existsByStoreIdAndHandle(storeId, request.getHandle())) {
             throw new BusinessRuleException("Product handle already exists");

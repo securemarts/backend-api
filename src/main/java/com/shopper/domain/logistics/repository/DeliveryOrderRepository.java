@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,8 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Lo
     Page<DeliveryOrder> findByStoreId(Long storeId, Pageable pageable);
 
     Page<DeliveryOrder> findByStoreIdAndStatus(Long storeId, DeliveryOrder.DeliveryStatus status, Pageable pageable);
+
+    List<DeliveryOrder> findByStoreIdInAndStatus(Collection<Long> storeIds, DeliveryOrder.DeliveryStatus status);
 
     List<DeliveryOrder> findByRiderIdAndStatusIn(Long riderId, List<DeliveryOrder.DeliveryStatus> statuses);
 

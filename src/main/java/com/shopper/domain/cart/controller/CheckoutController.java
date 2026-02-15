@@ -32,7 +32,7 @@ public class CheckoutController {
             @RequestParam String cartId) {
         Long storeId = resolveStoreId(storePublicId);
         Long customerId = null;
-        Order order = checkoutService.createOrderFromCart(storeId, customerId, cartId);
+        Order order = checkoutService.createOrderFromCart(storeId, customerId, cartId, null, null, null);
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(order));
     }
 
@@ -48,7 +48,10 @@ public class CheckoutController {
                 request.getCartId(),
                 request.getEmail(),
                 request.getCallbackUrl(),
-                request.getGateway());
+                request.getGateway(),
+                request.getDeliveryAddress(),
+                request.getDeliveryLat(),
+                request.getDeliveryLng());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

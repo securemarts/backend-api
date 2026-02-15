@@ -168,8 +168,8 @@ Cart is **per store**. Anonymous users get a cart token in the response; send it
 | Feature | Description | API | Request / response |
 |--------|-------------|-----|--------------------|
 | Create order only | Convert cart to order, clear cart | `POST /stores/{storePublicId}/checkout/create-order?cartId=` (auth) | Returns `OrderResponse`. Use when you want to pay later or use a different payment path. |
-| Create order and pay (one call) | Create order + initiate payment in one step | `POST /stores/{storePublicId}/checkout/create-order-and-pay` (auth) body: `cartId`, `email`, `callbackUrl`, `gateway` (e.g. PAYSTACK, FLUTTERWAVE) | Returns `order` + `payment`. **Redirect user to `payment.authorizationUrl`** to complete payment on gateway. |
-| Verify payment | After user returns from gateway | `POST /stores/{storePublicId}/payments/{paymentPublicId}/verify` | Returns payment status. On success, order is PAID. |
+| Create order and pay (one call) | Create order + initiate payment in one step | `POST /stores/{storePublicId}/checkout/create-order-and-pay` (auth) body: `cartId`, `email`, `callbackUrl`, `gateway`, optional `deliveryAddress`, `deliveryLat`, `deliveryLng` | Returns `order` + `payment`. If delivery fields are set, a delivery order is created automatically when payment succeeds. **Redirect user to `payment.authorizationUrl`** to complete payment on gateway. |
+| Verify payment | After user returns from gateway | `POST /stores/{storePublicId}/payments/{paymentPublicId}/verify` | Returns payment status. On success, order is set to PAID; if order had delivery address + lat/lng, a delivery order is created (auto-assigned to nearest rider). |
 
 **Flow:**
 
@@ -207,7 +207,7 @@ Delivery is **store-scoped** and uses **service zones**, **distance-based fee**,
 
 | Feature | Description | API | Request / response |
 |--------|-------------|-----|--------------------|
-| Create delivery order | After order is paid; auto-assigns nearest rider in zone | `POST /stores/{storePublicId}/delivery/orders` (auth, orders:write) body: `orderPublicId`, `deliveryAddress`, **`deliveryLat`**, **`deliveryLng`**, optional `pickupAddress`, `scheduledAt` | Backend: 1) Checks customer inside zone, 2) Computes fee (base + per_km × distance), 3) Finds nearest available rider, 4) Assigns rider and sets delivery status ASSIGNED. Returns delivery order with rider, fee, status. |
+| Create delivery order | After order is paid; optionally auto-assigns nearest rider | `POST /stores/{storePublicId}/delivery/orders` (auth, orders:write) body: `orderPublicId`, `deliveryAddress`, **`deliveryLat`**, **`deliveryLng`**, optional `pickupAddress`, `scheduledAt`, **`autoAssign`** (default true) | If `autoAssign` true: zone check, fee, nearest rider, ASSIGNED. If `autoAssign` false: delivery created as PENDING for riders to claim via rider app. |
 | List delivery orders | By store, optional status | `GET /stores/{storePublicId}/delivery/orders?status=` | For merchant delivery list. |
 | Get delivery order | Single delivery | `GET /stores/{storePublicId}/delivery/orders/{deliveryOrderPublicId}` | Detail view. |
 | Assign rider (manual) | Override / assign if auto didn’t run | `PATCH /stores/{storePublicId}/delivery/orders/{deliveryOrderPublicId}/assign` body: `riderPublicId` | Only for PENDING. Rider must be available. |
@@ -235,6 +235,9 @@ Riders have **separate auth** (`/rider/auth/login`) and **RIDER** role.
 |--------|-------------|-----|--------|
 | Update my location | Set rider’s current position (for dispatch) | `PATCH /rider/deliveries/me/location` body: `latitude`, `longitude` | Call when going “available” and periodically so nearest-rider assignment works. |
 | My deliveries | List assigned/active | `GET /rider/deliveries` | ASSIGNED, PICKED_UP, IN_TRANSIT. |
+| Available to claim | PENDING deliveries near rider (same zone, within radius) | `GET /rider/deliveries/available?latitude=&longitude=&radiusKm=` | When merchant creates delivery with autoAssign=false. |
+| Claim delivery | Assign a PENDING delivery to self | `POST /rider/deliveries/{deliveryOrderPublicId}/claim` | Rider must be available and in same zone. |
+| SSE stream | Real-time delivery events | `GET /rider/deliveries/stream` (text/event-stream) | Events: delivery_assigned, delivery_available. |
 | Get delivery | One delivery detail | `GET /rider/deliveries/{deliveryOrderPublicId}` | |
 | Accept | Confirm assignment | `POST /rider/deliveries/{deliveryOrderPublicId}/accept` | No state change; just confirmation. |
 | Reject | Unassign | `POST /rider/deliveries/{deliveryOrderPublicId}/reject` | Delivery back to PENDING; rider becomes available. |
@@ -243,7 +246,7 @@ Riders have **separate auth** (`/rider/auth/login`) and **RIDER** role.
 | Complete | Mark DELIVERED | `POST /rider/deliveries/{deliveryOrderPublicId}/complete` body: optional `podType`, `podPayload` | Rider becomes available again. |
 | Upload POD | Photo/signature | `POST /rider/deliveries/{deliveryOrderPublicId}/pod?type=` + multipart file | |
 
-**Flow:** Rider logs in → updates location (me/location) → sees assigned deliveries → start → (optional location updates) → complete (and optionally upload POD). Reject or complete frees the rider (available again).
+**Flow:** Rider logs in → updates location (me/location) → sees assigned deliveries (or lists available and claims one) → start → (optional location updates) → complete (and optionally upload POD). Reject or complete frees the rider (available again). Optional: subscribe to `GET /rider/deliveries/stream` for real-time assignment and available-delivery events.
 
 ---
 
@@ -314,7 +317,7 @@ POS is for in-store sales: registers, sessions, offline transactions, sync, cash
 |------|--------|-------------|
 | Auth | Login, complete setup | `POST /admin/auth/login`, `POST /admin/auth/complete-setup` |
 | Users | List/update admins | Admin user management |
-| Businesses | List, verify, update | Business verification (e.g. approve/reject after docs) |
+| Businesses | List, verify, update subscription | Business verification (approve/reject); `PATCH /admin/businesses/{id}/subscription` for plan/status/trial/period |
 | Roles & permissions | Platform roles, permissions | Role management, assign permissions to roles |
 | Merchant permissions | Merchant-level roles/permissions | Admin merchant role/permission controllers |
 | **Logistics** | **Service zones** | `GET/POST /admin/logistics/service-zones`, `GET/PATCH /admin/logistics/service-zones/{zonePublicId}` |
@@ -322,6 +325,35 @@ POS is for in-store sales: registers, sessions, offline transactions, sync, cash
 | | **Riders** | `GET/POST /admin/logistics/riders`, `GET/PATCH /admin/logistics/riders/{riderPublicId}` (filter by status or zonePublicId). Create/update use `zonePublicId`. |
 
 **Service zone model (Chowdeck):** Zone has name, city, center_lat/lng, radius_km, base_fee, per_km_fee, max_distance_km, min_order_amount, surge_enabled, active. Stores are assigned to one zone; riders are assigned to one zone and report location; delivery creation checks customer in zone, computes fee, assigns nearest available rider in zone.
+
+---
+
+### 4.15 Vendor subscription tiers
+
+Subscription is attached at **business** level: all stores under a business share one plan and limits. New businesses get a **14-day Pro trial** (plan = PRO, status = TRIALING, trial_ends_at = now + 14 days). When the trial ends and there is no active paid subscription, the **effective plan** becomes BASIC and feature limits (stores, locations, products, staff, delivery, POS, pricing) are enforced accordingly.
+
+| Feature / limit | Basic | Pro | Enterprise |
+|----------------|-------|-----|------------|
+| **Stores** | 1 | 5 | 999 |
+| **Locations per store** | 1 | 10 | 999 |
+| **Products** | 50 | 500 | 99999 |
+| **Staff (business members)** | 1 | 5 | 999 |
+| **Orders** | Unlimited | Unlimited | Unlimited |
+| **Online checkout + payment** | Yes | Yes | Yes |
+| **Delivery (rider dispatch)** | No | Yes | Yes |
+| **Pricing (rules / discount codes)** | 1 rule, 1 code | 10 rules, 20 codes | 999 each |
+| **POS (registers, sessions, offline)** | No | Yes (2 registers) | Yes (999) |
+| **Support** | Community / docs | Email | Dedicated / SLA |
+
+**APIs:**
+
+- **Merchant:** `GET /onboarding/businesses/{businessPublicId}/subscription` — returns effective plan, status, trial end, period end, limits, and **usage** (e.g. stores used, staff used) so the app can show “2/3 stores” and upgrade prompts.
+- **Subscribe:** `POST /onboarding/businesses/{businessPublicId}/subscription/subscribe` — body: `plan` (PRO or ENTERPRISE), `interval` (monthly/annually), optional `callbackUrl`. Returns `authorizationUrl` for Paystack (redirect customer to complete payment). If the customer already has a saved card with Paystack, subscription may be created immediately and `authorizationUrl` is null.
+- **Admin:** `PATCH /admin/businesses/{businessPublicId}/subscription` — body: optional `plan`, `status`, `trialEndsAt`, `currentPeriodEndsAt`. Used for manual trials or support-led upgrades.
+
+**Enforcement:** Creating a store, location, product, staff member, delivery order, POS register, price rule, or discount code checks the business’s **effective plan** and limits. If the limit would be exceeded or the feature is not allowed (e.g. delivery on Basic), the API returns **403** with a message indicating trial ended or upgrade required.
+
+**Paystack flow:** Subscribe calls Paystack subscription or transaction APIs; on success the backend receives a webhook at `POST /webhooks/paystack` (signature verified via `x-paystack-signature`). Events handled: `charge.success` (first-time subscription payment → create subscription and set business ACTIVE), `subscription.create` / `subscription.enable`, `subscription.disable` (CANCELLED), `invoice.payment_failed` (PAST_DUE). Business is identified via metadata `business_public_id` or by `subscription_code` stored on the business.
 
 ---
 

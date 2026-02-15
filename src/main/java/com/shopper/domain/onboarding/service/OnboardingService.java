@@ -33,6 +33,7 @@ public class OnboardingService {
     private final BusinessMemberRepository businessMemberRepository;
     private final MerchantRoleRepository merchantRoleRepository;
     private final RoleRepository roleRepository;
+    private final SubscriptionLimitsService subscriptionLimitsService;
 
     @Transactional
     public BusinessResponse createBusiness(String userPublicId, CreateBusinessRequest request) {
@@ -47,6 +48,9 @@ public class OnboardingService {
         business.setCacNumber(request.getCacNumber() != null ? request.getCacNumber().trim() : null);
         business.setTaxId(request.getTaxId() != null ? request.getTaxId().trim() : null);
         business.setVerificationStatus(Business.VerificationStatus.PENDING);
+        business.setSubscriptionPlan(Business.SubscriptionPlan.BASIC);
+        business.setSubscriptionStatus(Business.SubscriptionStatus.NONE);
+        business.setTrialEndsAt(null);
         business = businessRepository.save(business);
         BusinessOwner owner = new BusinessOwner();
         owner.setBusiness(business);
@@ -61,6 +65,11 @@ public class OnboardingService {
         Business business = businessRepository.findByPublicId(businessPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business", businessPublicId));
         ensureUserOwnsBusiness(userPublicId, business.getId());
+        var limits = subscriptionLimitsService.getLimitsForBusiness(business);
+        int storeCount = (int) storeRepository.countByBusinessId(business.getId());
+        if (storeCount >= limits.getMaxStores()) {
+            throw new BusinessRuleException("Store limit reached for your plan (" + limits.getMaxStores() + "). Upgrade to add more stores.");
+        }
         if (storeRepository.existsByDomainSlug(request.getDomainSlug().toLowerCase())) {
             throw new BusinessRuleException("Domain slug already taken");
         }
@@ -189,6 +198,10 @@ public class OnboardingService {
         Business business = businessRepository.findByPublicId(businessPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business", businessPublicId));
         ensureUserOwnsBusiness(userPublicId, business.getId());
+        var limits = subscriptionLimitsService.getLimitsForBusiness(business);
+        if (businessMemberRepository.countByBusinessId(business.getId()) >= limits.getMaxStaff()) {
+            throw new BusinessRuleException("Staff limit reached for your plan (" + limits.getMaxStaff() + "). Upgrade to add more staff.");
+        }
         String email = request.getEmail().toLowerCase().trim();
         if (businessMemberRepository.findByBusinessIdAndEmail(business.getId(), email).isPresent()) {
             throw new BusinessRuleException("Member with this email already exists or has been invited");
@@ -216,6 +229,12 @@ public class OnboardingService {
             throw new BusinessRuleException("User is already an owner of this business");
         }
         BusinessMember existing = businessMemberRepository.findByBusinessIdAndUserId(business.getId(), user.getId()).orElse(null);
+        if (existing == null) {
+            var limits = subscriptionLimitsService.getLimitsForBusiness(business);
+            if (businessMemberRepository.countByBusinessId(business.getId()) >= limits.getMaxStaff()) {
+                throw new BusinessRuleException("Staff limit reached for your plan (" + limits.getMaxStaff() + "). Upgrade to add more staff.");
+            }
+        }
         if (existing != null && existing.getStatus() == BusinessMember.MemberStatus.ACTIVE) {
             throw new BusinessRuleException("User is already a member");
         }

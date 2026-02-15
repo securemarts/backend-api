@@ -13,5 +13,6 @@ public class CashDrawerResponse {
 
     private BigDecimal balance;
     private String sessionPublicId;
+    @Schema(description = "Session status", allowableValues = {"OPEN", "CLOSED"})
     private String status;
 }

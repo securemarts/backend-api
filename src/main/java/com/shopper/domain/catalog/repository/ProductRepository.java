@@ -27,4 +27,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Page<Product> searchByStoreAndStatus(Long storeId, Product.ProductStatus status, String q, Pageable pageable);
 
     boolean existsByStoreIdAndHandle(Long storeId, String handle);
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.storeId = :storeId AND p.deletedAt IS NULL")
+    long countByStoreIdAndDeletedAtIsNull(Long storeId);
 }

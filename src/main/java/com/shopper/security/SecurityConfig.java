@@ -34,6 +34,7 @@ public class SecurityConfig {
             "/auth/verify-phone",
             "/auth/reset-password/request",
             "/auth/reset-password/confirm",
+            "/rider/auth/register",
             "/rider/auth/login",
             "/rider/auth/refresh",
             "/api-docs/**",
@@ -60,11 +61,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(PUBLIC).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/public/**").permitAll()
                         .requestMatchers("/storefront/**").permitAll()
                         .requestMatchers("/discovery/**").permitAll()
                         .requestMatchers("/stores/*/cart/**").permitAll()
                         .requestMatchers("/stores/*/pricing/apply").permitAll()
-                        .requestMatchers("/stores/*/uploads/**").permitAll()
+                        .requestMatchers("/webhooks/**").permitAll()
                         .requestMatchers("/admin/auth/login", "/admin/auth/complete-setup").permitAll()
                         .requestMatchers("/admin/**").hasAnyRole("PLATFORM_ADMIN", "SUPERUSER", "SUPPORT")
                         .requestMatchers("/rider/**").hasRole("RIDER")

@@ -14,9 +14,11 @@ import java.time.Instant;
 public class PaymentResponse {
 
     private String publicId;
+    @Schema(description = "Payment status", allowableValues = {"PENDING", "INITIATED", "SUCCESS", "FAILED", "CANCELLED", "REFUNDED"})
     private String status;
     private BigDecimal amount;
     private String currency;
+    @Schema(description = "Payment gateway", allowableValues = {"PAYSTACK", "FLUTTERWAVE"})
     private String gateway;
     private String gatewayReference;
     private String authorizationUrl;

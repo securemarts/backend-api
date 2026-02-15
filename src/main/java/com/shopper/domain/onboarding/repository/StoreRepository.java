@@ -18,6 +18,8 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
 
     List<Store> findByBusinessId(Long businessId);
 
+    long countByBusinessId(Long businessId);
+
     List<Store> findByBusinessIdIn(List<Long> businessIds);
 
     @Query("SELECT s FROM Store s WHERE s.business IN (SELECT bo.business FROM BusinessOwner bo WHERE bo.userId = :userId)")

@@ -12,7 +12,7 @@ public class InventoryAdjustmentRequest {
     @Schema(description = "Quantity delta (positive for restock, negative for deduction)", requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer quantityDelta;
 
-    @Schema(description = "Movement type", example = "ADJUSTMENT")
+    @Schema(description = "Inventory movement type", allowableValues = {"ADJUSTMENT", "SALE", "RESTOCK", "RESERVE", "RELEASE", "RETURN", "TRANSFER_IN", "TRANSFER_OUT"}, example = "ADJUSTMENT")
     private String movementType = "ADJUSTMENT";
 
     @Schema(description = "Reference type (e.g. ORDER, RETURN)")

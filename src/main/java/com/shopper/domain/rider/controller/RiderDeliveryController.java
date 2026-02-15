@@ -2,12 +2,16 @@ package com.shopper.domain.rider.controller;
 
 import com.shopper.domain.catalog.service.FileStorageService;
 import com.shopper.domain.logistics.repository.DeliveryOrderRepository;
+import com.shopper.domain.rider.dto.AvailableDeliveryResponse;
 import com.shopper.domain.rider.dto.CompleteDeliveryRequest;
 import com.shopper.domain.rider.dto.RiderDeliveryResponse;
 import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.rider.dto.UpdateLocationRequest;
 import com.shopper.domain.rider.service.RiderDeliveryService;
+import com.shopper.domain.rider.sse.RiderSseRegistry;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -19,8 +23,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Map;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -34,11 +41,42 @@ public class RiderDeliveryController {
     private final RiderDeliveryService riderDeliveryService;
     private final FileStorageService fileStorageService;
     private final DeliveryOrderRepository deliveryOrderRepository;
+    private final RiderSseRegistry riderSseRegistry;
 
     @GetMapping
     @Operation(summary = "Get assigned deliveries", description = "List deliveries assigned to the rider (ASSIGNED, PICKED_UP, IN_TRANSIT)")
     public ResponseEntity<List<RiderDeliveryResponse>> getAssignedDeliveries(@AuthenticationPrincipal String riderPublicId) {
         return ResponseEntity.ok(riderDeliveryService.getAssignedDeliveries(riderPublicId));
+    }
+
+    @GetMapping("/available")
+    @Operation(summary = "Get available deliveries to claim", description = "PENDING deliveries within radius of rider (same zone). Use when autoAssign=false.")
+    public ResponseEntity<List<AvailableDeliveryResponse>> getAvailableDeliveries(
+            @AuthenticationPrincipal String riderPublicId,
+            @RequestParam(required = false) java.math.BigDecimal latitude,
+            @RequestParam(required = false) java.math.BigDecimal longitude,
+            @RequestParam(required = false) Double radiusKm) {
+        return ResponseEntity.ok(riderDeliveryService.getAvailableDeliveries(riderPublicId, latitude, longitude, radiusKm));
+    }
+
+    @PostMapping("/{deliveryOrderPublicId}/claim")
+    @Operation(summary = "Claim a PENDING delivery", description = "Assign this delivery to the rider (rider must be available and in same zone)")
+    public ResponseEntity<RiderDeliveryResponse> claimDelivery(
+            @AuthenticationPrincipal String riderPublicId,
+            @PathVariable String deliveryOrderPublicId) {
+        return ResponseEntity.ok(riderDeliveryService.claimDelivery(riderPublicId, deliveryOrderPublicId));
+    }
+
+    @GetMapping(value = "/stream", produces = "text/event-stream")
+    @Operation(summary = "SSE stream for delivery events", description = "Server-sent events: delivery_assigned, delivery_available. Keep connection open to receive real-time updates.")
+    public SseEmitter stream(@AuthenticationPrincipal String riderPublicId) {
+        SseEmitter emitter = riderSseRegistry.createAndRegister(riderPublicId);
+        try {
+            emitter.send(SseEmitter.event().name("connected").data(Map.of("type", "connected", "riderPublicId", riderPublicId)));
+        } catch (IOException e) {
+            riderSseRegistry.remove(riderPublicId, emitter);
+        }
+        return emitter;
     }
 
     @PatchMapping("/me/location")
@@ -107,7 +145,7 @@ public class RiderDeliveryController {
     public ResponseEntity<RiderDeliveryResponse> uploadPod(
             @AuthenticationPrincipal String riderPublicId,
             @PathVariable String deliveryOrderPublicId,
-            @RequestParam String type,
+            @Parameter(description = "POD type", required = true, schema = @Schema(allowableValues = {"SIGNATURE", "PHOTO"})) @RequestParam String type,
             @RequestParam(required = false) MultipartFile file) {
         return ResponseEntity.ok(riderDeliveryService.uploadProofOfDelivery(riderPublicId, deliveryOrderPublicId, type, file));
     }

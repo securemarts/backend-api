@@ -18,7 +18,7 @@ public class PriceRuleRequest {
     private String title;
 
     @NotBlank
-    @Schema(description = "Value type: FIXED_AMOUNT or PERCENTAGE", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Discount value type", requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"FIXED_AMOUNT", "PERCENTAGE"})
     private String valueType;
 
     @Schema(description = "Fixed amount (when valueType=FIXED_AMOUNT)")

@@ -4,6 +4,7 @@ import com.shopper.domain.catalog.service.FileStorageService;
 import com.shopper.common.dto.ApiResponse;
 import com.shopper.domain.onboarding.dto.*;
 import com.shopper.domain.onboarding.entity.BankAccount;
+import com.shopper.domain.onboarding.service.SubscriptionService;
 import com.shopper.domain.onboarding.entity.ComplianceDocument;
 import com.shopper.domain.onboarding.service.MerchantRoleService;
 import com.shopper.domain.onboarding.service.OnboardingService;
@@ -33,6 +34,7 @@ public class OnboardingController {
     private final OnboardingService onboardingService;
     private final FileStorageService fileStorageService;
     private final MerchantRoleService merchantRoleService;
+    private final SubscriptionService subscriptionService;
 
     @PostMapping("/businesses")
     @Operation(summary = "Create business", description = "Step 1: Create business after user verification")
@@ -86,6 +88,42 @@ public class OnboardingController {
         ComplianceDocument doc = onboardingService.uploadComplianceDocument(
                 userPublicId, businessPublicId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ComplianceDocumentDto.from(doc));
+    }
+
+    @GetMapping("/businesses/{businessPublicId}/subscription")
+    @Operation(summary = "Get subscription", description = "Current plan, status, trial end, limits and usage")
+    public ResponseEntity<SubscriptionResponse> getSubscription(
+            @AuthenticationPrincipal String userPublicId,
+            @PathVariable String businessPublicId) {
+        return ResponseEntity.ok(subscriptionService.getSubscription(userPublicId, businessPublicId));
+    }
+
+    @PostMapping("/businesses/{businessPublicId}/subscription/start-trial")
+    @Operation(summary = "Start Pro trial", description = "Start 14-day Pro trial. Only allowed when current plan is Basic.")
+    public ResponseEntity<?> startTrial(
+            @AuthenticationPrincipal String userPublicId,
+            @PathVariable String businessPublicId) {
+        subscriptionService.startTrial(userPublicId, businessPublicId);
+        return ResponseEntity.ok(ApiResponse.success("Pro trial started. Valid for 14 days.", null));
+    }
+
+    @PostMapping("/businesses/{businessPublicId}/subscription/subscribe")
+    @Operation(summary = "Start subscription", description = "Returns Paystack authorization URL to complete Pro/Enterprise subscription")
+    public ResponseEntity<SubscribeResponse> subscribe(
+            @AuthenticationPrincipal String userPublicId,
+            @PathVariable String businessPublicId,
+            @Valid @RequestBody SubscribeRequest request) {
+        return ResponseEntity.ok(subscriptionService.subscribe(userPublicId, businessPublicId, request));
+    }
+
+    @PostMapping("/businesses/{businessPublicId}/subscription/verify")
+    @Operation(summary = "Verify subscription payment", description = "Verify Paystack transaction reference after redirect (use when webhook is not available)")
+    public ResponseEntity<?> verifySubscriptionPayment(
+            @AuthenticationPrincipal String userPublicId,
+            @PathVariable String businessPublicId,
+            @Valid @RequestBody VerifySubscriptionRequest request) {
+        subscriptionService.verifySubscriptionPayment(userPublicId, businessPublicId, request);
+        return ResponseEntity.ok(ApiResponse.success("Subscription activated.", null));
     }
 
     @PostMapping("/businesses/{businessPublicId}/submit")

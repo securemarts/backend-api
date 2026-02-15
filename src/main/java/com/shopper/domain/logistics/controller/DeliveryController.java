@@ -7,6 +7,8 @@ import com.shopper.domain.onboarding.repository.StoreRepository;
 import com.shopper.domain.onboarding.service.MerchantPermissionService;
 import com.shopper.domain.onboarding.service.StoreAccessService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -55,7 +57,7 @@ public class DeliveryController {
     public ResponseEntity<PageResponse<DeliveryOrderResponse>> listDeliveryOrders(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String storePublicId,
-            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by delivery status", schema = @Schema(allowableValues = {"PENDING", "ASSIGNED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "FAILED", "RETURNED"})) @RequestParam(required = false) String status,
             @PageableDefault(size = 20) Pageable pageable) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:read");
