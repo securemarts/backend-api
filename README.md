@@ -70,9 +70,11 @@ createuser -P shopper   # enter password when prompted (e.g. shopper)
 createuser shopper
 ```
 
-Default connection: `jdbc:postgresql://localhost:5432/shopper` with user `shopper` and password `shopper`. Override with environment variables:
+Default connection: `jdbc:postgresql://localhost:5432/shopper` with user `shopper` and password `shopper`. Override via `.env` or environment variables:
 
-- `DB_PASSWORD` – database password
+- `DB_URL` – JDBC URL (default: `jdbc:postgresql://localhost:5432/shopper`)
+- `DB_USERNAME` – database user (default: `shopper`)
+- `DB_PASSWORD` – database password (default: `shopper`)
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` – min 32 characters each for JWT signing
 
 ### 3. Run the app
