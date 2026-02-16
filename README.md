@@ -107,12 +107,16 @@ This starts PostgreSQL and the app. The app waits for the database to be healthy
 - **API base URL:** http://localhost:8080/api/v1
 - **Swagger UI:** http://localhost:8080/api/v1/swagger-ui.html
 
-To pass JWT or Paystack keys from your `.env`:
+To pass secrets (JWT, Paystack, **Zeptomail for verification emails**) from your `.env`:
 
 ```bash
-# Optional: create .env with JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, APP_PAYMENT_PAYSTACK_SECRET_KEY, etc.
+# Copy .env.example to .env, set APP_MAIL_ZEPTO_API_KEY and APP_MAIL_FROM for verification emails
 docker compose up -d
 ```
+
+**Local runs (Maven/IDE):** The app loads `.env` from the project root automatically when you run `./mvnw spring-boot:run` or from the IDE (with working directory set to the project root). Ensure `APP_MAIL_ZEPTO_API_KEY` and `APP_MAIL_FROM` are set in `.env` for verification emails.
+
+**Zeptomail 500 with empty response body:** If the app gets a 500 from Zeptomail while a curl request with the same payload and token works, the Send Mail Token in `.env` may belong to a different Zeptomail Agent than the one where `APP_MAIL_FROM` is verified. Use the token from **Agents → [your agent] → SMTP/API → Send Mail Token**, ensure the From address and domain are verified for that agent, then contact Zeptomail support if the issue persists.
 
 Stop: `docker compose down`. Data is kept in Docker volumes (`postgres_data`, `uploads_data`).
 

@@ -4,6 +4,7 @@ import com.shopper.common.exception.BusinessRuleException;
 import com.shopper.domain.auth.dto.*;
 import com.shopper.domain.auth.entity.*;
 import com.shopper.domain.auth.repository.*;
+import com.shopper.mail.EmailService;
 import com.shopper.security.JwtProperties;
 import com.shopper.security.JwtService;
 import com.shopper.security.LoginRateLimiter;
@@ -38,12 +39,17 @@ public class AuthService {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final LoginRateLimiter loginRateLimiter;
+    private final EmailVerificationService emailVerificationService;
+    private final EmailService emailService;
 
     @Value("${app.auth.max-login-attempts:5}")
     private int maxLoginAttempts;
 
     @Value("${app.auth.lockout-duration-minutes:30}")
     private int lockoutDurationMinutes;
+
+    @Value("${app.auth.password-reset-base-url:}")
+    private String passwordResetBaseUrl;
 
     @Transactional
     public TokenResponse register(RegisterRequest request) {
@@ -67,7 +73,14 @@ public class AuthService {
         user.setFailedLoginAttempts(0);
         assignDefaultRole(user, userType);
         user = userRepository.save(user);
-        log.info("User registered: {}", user.getEmail());
+        log.info("User registered: {}, sending verification OTP", user.getEmail());
+        try {
+            emailVerificationService.createAndSendOtp(user.getEmail(), EmailVerificationOtp.TargetType.USER,
+                    user.getFirstName());
+        } catch (Exception e) {
+            log.error("Failed to send verification OTP to {} – user created but email not sent: {}", user.getEmail(), e.getMessage(), e);
+            // Don't fail registration; user can use /auth/verify-email/resend
+        }
         return buildTokenResponse(user, null);
     }
 
@@ -158,14 +171,25 @@ public class AuthService {
     }
 
     @Transactional
-    public void verifyEmail(VerifyRequest request) {
-        // Stub: in production you'd validate token from email link
-        Optional<User> user = userRepository.findByPublicId(request.getToken());
-        if (user.isEmpty()) {
-            throw new BusinessRuleException("Invalid verification token");
+    public void verifyEmail(VerifyEmailRequest request) {
+        emailVerificationService.verify(request.getEmail().trim().toLowerCase(), request.getCode(),
+                EmailVerificationOtp.TargetType.USER);
+        User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
+                .orElseThrow(() -> new BusinessRuleException("User not found"));
+        user.setEmailVerified(true);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void resendVerifyEmail(String email) {
+        User user = userRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new BusinessRuleException("No account found for this email"));
+        if (user.isEmailVerified()) {
+            throw new BusinessRuleException("Email is already verified");
         }
-        user.get().setEmailVerified(true);
-        userRepository.save(user.get());
+        String recipientName = user.getFirstName() != null ? user.getFirstName() : "";
+        emailVerificationService.createAndSendOtp(user.getEmail(), EmailVerificationOtp.TargetType.USER,
+                recipientName);
     }
 
     @Transactional
@@ -184,8 +208,11 @@ public class AuthService {
             prt.setTokenHash(tokenHash);
             prt.setExpiresAt(Instant.now().plusSeconds(3600));
             passwordResetTokenRepository.save(prt);
-            // TODO: send email with link containing rawToken
-            log.info("Password reset token created for user {}", user.getEmail());
+            String resetLink = (passwordResetBaseUrl != null && !passwordResetBaseUrl.isBlank())
+                    ? passwordResetBaseUrl + (passwordResetBaseUrl.contains("?") ? "&" : "?") + "token=" + rawToken
+                    : "Token (use in app within 1 hour): " + rawToken;
+            emailService.sendPasswordReset(user.getEmail(), resetLink, user.getFirstName());
+            log.info("Password reset email sent to {}", user.getEmail());
         });
     }
 

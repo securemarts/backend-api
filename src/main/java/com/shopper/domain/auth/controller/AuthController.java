@@ -1,9 +1,13 @@
 package com.shopper.domain.auth.controller;
 
 import com.shopper.common.dto.ApiResponse;
+import com.shopper.common.exception.BusinessRuleException;
 import com.shopper.domain.auth.dto.*;
 import com.shopper.domain.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -51,14 +55,36 @@ public class AuthController {
     }
 
     @PostMapping("/verify-email")
-    @Operation(summary = "Verify email", description = "Confirm email using token from link")
-    public ResponseEntity<?> verifyEmail(@Valid @RequestBody VerifyRequest request) {
+    @Operation(
+            summary = "Verify email",
+            description = "Confirm email using the 6-digit OTP sent to your email. Request body: email + code (OTP)."
+    )
+    public ResponseEntity<?> verifyEmail(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Email and 6-digit OTP code (not a single token)",
+                    required = true,
+                    content = @Content(
+                            schema = @Schema(implementation = VerifyEmailRequest.class),
+                            examples = @ExampleObject(value = "{\"email\":\"user@example.com\",\"code\":\"123456\"}")
+                    )
+            )
+            @Valid @RequestBody VerifyEmailRequest request) {
         authService.verifyEmail(request);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    @PostMapping("/verify-email/resend")
+    @Operation(summary = "Resend verification OTP", description = "Send a new OTP to the given email. Pass email as query param: ?email=user@example.com")
+    public ResponseEntity<?> resendVerifyEmail(@RequestParam(required = false) String email) {
+        if (email == null || email.isBlank()) {
+            throw new BusinessRuleException("Email is required");
+        }
+        authService.resendVerifyEmail(email.trim());
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
     @PostMapping("/verify-phone")
-    @Operation(summary = "Verify phone", description = "Confirm phone using OTP (stub)")
+    @Operation(summary = "Verify phone", description = "Confirm phone using OTP (stub). Uses token/code in request body.")
     public ResponseEntity<?> verifyPhone(@Valid @RequestBody VerifyRequest request) {
         authService.verifyPhone(request);
         return ResponseEntity.ok(ApiResponse.success(null));

@@ -2,8 +2,11 @@ package com.shopper.domain.rider.service;
 
 import com.shopper.common.exception.BusinessRuleException;
 import com.shopper.common.exception.ResourceNotFoundException;
-import com.shopper.domain.auth.dto.TokenResponse;
 import com.shopper.domain.auth.dto.RefreshTokenRequest;
+import com.shopper.domain.auth.dto.TokenResponse;
+import com.shopper.domain.auth.dto.VerifyEmailRequest;
+import com.shopper.domain.auth.entity.EmailVerificationOtp;
+import com.shopper.domain.auth.service.EmailVerificationService;
 import com.shopper.domain.logistics.entity.Rider;
 import com.shopper.domain.logistics.repository.RiderRepository;
 import com.shopper.domain.rider.entity.RiderRefreshToken;
@@ -27,6 +30,7 @@ public class RiderAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
     public TokenResponse register(com.shopper.domain.rider.dto.RiderRegisterRequest request) {
@@ -45,6 +49,8 @@ public class RiderAuthService {
         rider.setVerificationStatus(Rider.VerificationStatus.PENDING);
         rider.setEmailVerified(false);
         rider = riderRepository.save(rider);
+        emailVerificationService.createAndSendOtp(rider.getEmail(), EmailVerificationOtp.TargetType.RIDER,
+                rider.getFirstName());
         com.shopper.domain.rider.dto.RiderLoginRequest loginReq = new com.shopper.domain.rider.dto.RiderLoginRequest();
         loginReq.setEmail(request.getEmail());
         loginReq.setPassword(request.getPassword());
@@ -108,6 +114,27 @@ public class RiderAuthService {
         rt.setExpiresAt(expiresAt);
         refreshTokenRepository.save(rt);
         return buildTokenResponse(rider, accessToken, newRefreshToken);
+    }
+
+    @Transactional
+    public void verifyEmail(VerifyEmailRequest request) {
+        emailVerificationService.verify(request.getEmail().trim().toLowerCase(), request.getCode(),
+                EmailVerificationOtp.TargetType.RIDER);
+        Rider rider = riderRepository.findByEmail(request.getEmail().trim().toLowerCase())
+                .orElseThrow(() -> new BusinessRuleException("Rider not found"));
+        rider.setEmailVerified(true);
+        riderRepository.save(rider);
+    }
+
+    @Transactional
+    public void resendVerifyEmail(String email) {
+        Rider rider = riderRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new BusinessRuleException("No rider account found for this email"));
+        if (rider.isEmailVerified()) {
+            throw new BusinessRuleException("Email is already verified");
+        }
+        emailVerificationService.createAndSendOtp(rider.getEmail(), EmailVerificationOtp.TargetType.RIDER,
+                rider.getFirstName());
     }
 
     @Transactional

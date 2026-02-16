@@ -11,8 +11,10 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.mapping.PropertyReferenceException;
 
@@ -41,6 +43,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<?> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("VALIDATION_ERROR", "Constraint violation"));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<?> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
+        String message = "Missing required parameter: " + ex.getParameterName();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("VALIDATION_ERROR", message));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
@@ -84,6 +92,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleBusinessRule(BusinessRuleException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
                 ApiResponse.error("BUSINESS_RULE_VIOLATION", ex.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
+        String message = ex.getMessage();
+        if (message != null && message.contains("idx_email_verification_otp_email_type")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    ApiResponse.error("BUSINESS_RULE_VIOLATION", "A verification code was already sent. Wait a moment before requesting another."));
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.error("CONFLICT", "A conflict occurred. Please try again."));
     }
 
     @ExceptionHandler(Exception.class)

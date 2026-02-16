@@ -59,9 +59,9 @@ temp/
 # Spring Boot
 spring-boot-devtools.properties
 
-# Local config and secrets (optional: uncomment if you use .env)
-# .env
-# .env.local
+# Local config and secrets
+.env
+.env.local
 # application-local.yml
 # application-local.properties
 

@@ -30,6 +30,8 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-256-bit-secret-for-refresh-token-min-32-chars}
       APP_PAYMENT_PAYSTACK_SECRET_KEY: ${APP_PAYMENT_PAYSTACK_SECRET_KEY:-}
       APP_PAYMENT_PAYSTACK_PUBLIC_KEY: ${APP_PAYMENT_PAYSTACK_PUBLIC_KEY:-}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:-noreply@shopper.local}
+      APP_MAIL_ZEPTO_API_KEY: ${APP_MAIL_ZEPTO_API_KEY:-}
       UPLOADS_PATH: /app/uploads
     depends_on:
       postgres:
