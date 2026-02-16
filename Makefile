@@ -1,11 +1,11 @@
-# Shopper API – common commands for devs
+# Securemarts API – common commands for devs
 # Run `make` or `make help` to list targets.
 
 .PHONY: help start stop up down build logs run run-local db clean test
 
 # Default target: show help
 help:
-	@echo "Shopper API – make targets"
+	@echo "Securemarts API – make targets"
 	@echo ""
 	@echo "  make start     Start app + Postgres (Docker, detached)"
 	@echo "  make up        Same as start"
@@ -48,7 +48,7 @@ run:
 run-local: db
 	@echo "Waiting for Postgres to be ready..."
 	@sleep 3
-	SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/shopper ./mvnw spring-boot:run
+	SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/securemarts ./mvnw spring-boot:run
 
 # Run tests
 test:

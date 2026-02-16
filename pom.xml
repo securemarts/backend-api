@@ -11,10 +11,10 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.shopper</groupId>
-    <artifactId>shopper-platform</artifactId>
+    <groupId>com.securemarts</groupId>
+    <artifactId>securemarts-platform</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <name>shopper-platform</name>
+    <name>securemarts-platform</name>
     <description>Multi-tenant Shopify-like commerce platform for Nigerian market</description>
 
     <properties>

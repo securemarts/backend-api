@@ -1,36 +1,36 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: shopper-postgres
+    container_name: securemarts-postgres
     environment:
-      POSTGRES_DB: shopper
-      POSTGRES_USER: shopper
-      POSTGRES_PASSWORD: shopper
+      POSTGRES_DB: securemarts
+      POSTGRES_USER: securemarts
+      POSTGRES_PASSWORD: securemarts
     ports:
       - "5433:5432"  # host 5433 to avoid conflict with local Postgres on 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shopper -d shopper"]
+      test: ["CMD-SHELL", "pg_isready -U securemarts -d securemarts"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   app:
     build: .
-    container_name: shopper-app
+    container_name: securemarts-app
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/shopper
-      SPRING_DATASOURCE_USERNAME: shopper
-      SPRING_DATASOURCE_PASSWORD: shopper
-      DB_PASSWORD: shopper
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/securemarts
+      SPRING_DATASOURCE_USERNAME: securemarts
+      SPRING_DATASOURCE_PASSWORD: securemarts
+      DB_PASSWORD: securemarts
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-your-256-bit-secret-for-access-token-min-32-chars}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-256-bit-secret-for-refresh-token-min-32-chars}
       APP_PAYMENT_PAYSTACK_SECRET_KEY: ${APP_PAYMENT_PAYSTACK_SECRET_KEY:-}
       APP_PAYMENT_PAYSTACK_PUBLIC_KEY: ${APP_PAYMENT_PAYSTACK_PUBLIC_KEY:-}
-      APP_MAIL_FROM: ${APP_MAIL_FROM:-noreply@shopper.local}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:-noreply@securemarts.local}
       APP_MAIL_ZEPTO_API_KEY: ${APP_MAIL_ZEPTO_API_KEY:-}
       UPLOADS_PATH: /app/uploads
     depends_on:

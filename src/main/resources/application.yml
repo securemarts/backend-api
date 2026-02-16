@@ -1,11 +1,11 @@
 spring:
   application:
-    name: shopper-platform
+    name: securemarts-platform
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/shopper}
-    username: ${DB_USERNAME:shopper}
-    password: ${DB_PASSWORD:shopper}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/securemarts}
+    username: ${DB_USERNAME:securemarts}
+    password: ${DB_PASSWORD:securemarts}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 20
@@ -48,8 +48,8 @@ app:
   uploads:
     path: ${UPLOADS_PATH:./uploads}
   mail:
-    from: ${APP_MAIL_FROM:noreply@shopper.local}
-    from-name: ${APP_MAIL_FROM_NAME:Shopper}
+    from: ${APP_MAIL_FROM:noreply@securemarts.local}
+    from-name: ${APP_MAIL_FROM_NAME:Securemarts}
     zeptomail:
       api-key: ${APP_MAIL_ZEPTO_API_KEY:}
   jwt:
@@ -57,7 +57,7 @@ app:
     refresh-secret: ${JWT_REFRESH_SECRET:your-256-bit-secret-for-refresh-token-min-32-chars}
     access-ttl: 900
     refresh-ttl: 604800
-    issuer: shopper-platform
+    issuer: securemarts-platform
   auth:
     max-login-attempts: 5
     lockout-duration-minutes: 30
@@ -87,6 +87,6 @@ springdoc:
 
 logging:
   level:
-    com.shopper: DEBUG
+    com.securemarts: DEBUG
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG

@@ -1,4 +1,4 @@
-# Shopper – Product Features & Flows
+# Securemarts – Product Features & Flows
 
 **Purpose:** A single source of truth for frontend and mobile engineers to build UIs without Figma. This document maps every feature, how it connects to others, and how it is meant to work.
 
@@ -6,10 +6,10 @@
 
 ## 1. Product overview
 
-**Shopper** is a multi-tenant commerce and delivery platform (Chowdeck/UberEats style):
+**Securemarts** is a multi-tenant commerce and delivery platform (Chowdeck/UberEats style):
 
 - **Merchants** onboard a business and stores, manage catalog and inventory, receive and fulfill orders, and optionally use delivery (riders) and POS.
-- **Shoppers** discover stores (by search, city, or location), browse products, add to cart, pay (Paystack/Flutterwave), and can request delivery to an address.
+- **Customers** discover stores (by search, city, or location), browse products, add to cart, pay (Paystack/Flutterwave), and can request delivery to an address.
 - **Riders** are onboarded by the platform, operate in **service zones**, report location, and get **nearest-rider** assignment when a paid order needs delivery.
 - **Platform admins** manage businesses (verification), users, roles, and logistics (service zones, riders, store–zone assignment).
 
@@ -21,7 +21,7 @@ Everything is **store-scoped**: cart, checkout, orders, delivery, and POS use `s
 
 | Role | Who | Main entrypoints |
 |------|-----|-------------------|
-| **Customer / Shopper** | End buyer | Discovery, storefront, cart, checkout (cart/checkout can be anonymous via cart token). |
+| **Customer** | End buyer | Discovery, storefront, cart, checkout (cart/checkout can be anonymous via cart token). |
 | **MERCHANT_OWNER / MERCHANT_STAFF** | Store staff | Onboarding (business/store), catalog, inventory, orders, delivery, pricing, POS. Access is per-store and permission-based (e.g. `orders:read`, `orders:write`). |
 | **RIDER** | Delivery rider | Rider auth; “my deliveries”; update location; accept/reject, start, complete delivery; POD. |
 | **PLATFORM_ADMIN / SUPERUSER / SUPPORT** | Platform ops | Admin auth; user/business management; verification; admin logistics (service zones, riders, store–zone). |
@@ -42,7 +42,7 @@ Everything is **store-scoped**: cart, checkout, orders, delivery, and POS use `s
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SHOPPER PLATFORM                                    │
+│                           SECUREMARTS PLATFORM                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  DISCOVERY (public)          STOREFRONT (public)        CART (public token)  │
 │  Search stores by q/city/    Store by slug, products    Get/create cart,     │
@@ -101,7 +101,7 @@ Everything is **store-scoped**: cart, checkout, orders, delivery, and POS use `s
 
 ### 4.2 Discovery (public – no auth)
 
-Used by shoppers to find stores and see what’s available where.
+Used by customers to find stores and see what’s available where.
 
 | Feature | Description | API | Response / usage |
 |--------|-------------|-----|-------------------|
@@ -157,7 +157,7 @@ Cart is **per store**. Anonymous users get a cart token in the response; send it
 | Feature | Description | API | Usage |
 |--------|-------------|-----|--------|
 | Apply discount (public) | Get discounted total for checkout | `POST /stores/{storePublicId}/pricing/apply` body: `{"code":"SAVE10","subtotal":"5000"}` | Returns `subtotal`, `discountedTotal`, `code`. Use `discountedTotal` as amount to charge. |
-| Price rules & codes (merchant) | CRUD rules, add codes | `GET/POST /stores/{storePublicId}/pricing/rules`, `POST .../rules/{id}/codes` (auth) | Merchant creates rules and codes; shopper only uses apply. |
+| Price rules & codes (merchant) | CRUD rules, add codes | `GET/POST /stores/{storePublicId}/pricing/rules`, `POST .../rules/{id}/codes` (auth) | Merchant creates rules and codes; customer only uses apply. |
 
 **Flow:** On checkout screen, user may enter a code. Call `pricing/apply` with cart subtotal and code; show discounted total and optionally “Pay ₦X” (discountedTotal).
 
@@ -359,7 +359,7 @@ Subscription is attached at **business** level: all stores under a business shar
 
 ## 5. Key end-to-end flows (summary)
 
-### 5.1 Shopper: discover → cart → pay → (optional) delivery
+### 5.1 Customer: discover → cart → pay → (optional) delivery
 
 1. **Discover:** Search stores (discovery) or open store by slug (storefront). Pick location; get availability (variants + prices).
 2. **Cart:** Add variants to cart (store publicId + cart token). Optionally apply discount code (pricing/apply).
@@ -403,7 +403,7 @@ Subscription is attached at **business** level: all stores under a business shar
 
 ## 8. What to build per surface
 
-- **Web/Mobile (shopper):** Discovery (search, map/list, locations, availability), storefront (store by slug, products), cart (token-based), checkout (create-order-and-pay, redirect, verify), optional “Request delivery” with address + lat/lng.
+- **Web/Mobile (customer):** Discovery (search, map/list, locations, availability), storefront (store by slug, products), cart (token-based), checkout (create-order-and-pay, redirect, verify), optional “Request delivery” with address + lat/lng.
 - **Web (merchant):** Onboarding (business, store, docs), catalog (products, variants, collections), inventory (locations, stock), orders (list, detail, status), delivery (list, create with lat/lng, assign/reschedule), pricing (rules, codes), POS (registers, sessions, sync).
 - **Mobile (rider):** Login, update my location, my deliveries list/detail, accept/reject, start, location updates, complete, POD upload.
 - **Web (admin):** Login, businesses (list, verify), users, roles/permissions, logistics (service zones CRUD, assign store to zone, riders CRUD).

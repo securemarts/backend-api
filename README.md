@@ -1,4 +1,4 @@
-# Shopper Platform
+# Securemarts Platform
 
 Multi-tenant Shopify-like commerce platform for the Nigerian market. Built with Java 17, Spring Boot, Spring Data JPA, Spring Security (JWT), PostgreSQL, and Flyway.
 
@@ -27,7 +27,7 @@ Multi-tenant Shopify-like commerce platform for the Nigerian market. Built with 
 ## Project Structure
 
 ```
-src/main/java/com/shopper/
+src/main/java/com/securemarts/
 ├── common/           # BaseEntity, ApiError, PageResponse, exceptions
 ├── config/           # JPA, OpenAPI, Cache
 ├── security/         # JWT, filters, rate limiting, tenant context
@@ -64,17 +64,17 @@ Create the database and user (PostgreSQL):
 
 ```bash
 # Using psql or your DB tool:
-createdb shopper
-createuser -P shopper   # enter password when prompted (e.g. shopper)
+createdb securemarts
+createuser -P securemarts   # enter password when prompted (e.g. securemarts)
 # Or with default trust for local dev:
-createuser shopper
+createuser securemarts
 ```
 
-Default connection: `jdbc:postgresql://localhost:5432/shopper` with user `shopper` and password `shopper`. Override via `.env` or environment variables:
+Default connection: `jdbc:postgresql://localhost:5432/securemarts` with user `securemarts` and password `securemarts`. Override via `.env` or environment variables:
 
-- `DB_URL` – JDBC URL (default: `jdbc:postgresql://localhost:5432/shopper`)
-- `DB_USERNAME` – database user (default: `shopper`)
-- `DB_PASSWORD` – database password (default: `shopper`)
+- `DB_URL` – JDBC URL (default: `jdbc:postgresql://localhost:5432/securemarts`)
+- `DB_USERNAME` – database user (default: `securemarts`)
+- `DB_PASSWORD` – database password (default: `securemarts`)
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` – min 32 characters each for JWT signing
 
 ### 3. Run the app
@@ -189,7 +189,7 @@ Admins use a separate login; the response includes `roles` and `scopes` (permiss
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/admin/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "admin@shopper.local", "password": "password"}'
+  -d '{"email": "admin@securemarts.local", "password": "password"}'
 ```
 
 Use the returned `accessToken` with **Authorize** in Swagger, then call **GET /admin/auth/me** to get current admin identity, roles, and scopes.
@@ -330,7 +330,7 @@ All errors use a consistent shape:
 
 ### Seeded admin (dev)
 
-- Migration **V12** seeds a default admin: `admin@shopper.local` / `password`. Change in production.
+- Migration **V12** seeds a default admin: `admin@securemarts.local` / `password`. Change in production.
 
 ## Database Migrations
 
@@ -342,7 +342,7 @@ All errors use a consistent shape:
 - `V8__catalog_business_scope.sql` – products, collections, tags scoped to business (not store); stores keep per-store inventory
 - `V10` – admins table (platform admin identity)
 - `V11` – business_members (staff roles: MANAGER, CASHIER, STAFF)
-- `V12` – seed first admin (admin@shopper.local)
+- `V12` – seed first admin (admin@securemarts.local)
 - `V13` – admin_invites (invite-by-email flow)
 - `V14` – admin_roles (multi-role per admin)
 - `V15` – admin RBAC (admin_permissions, admin_role_permissions)
