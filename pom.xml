@@ -105,6 +105,17 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>10.14.0</version>
+                <configuration>
+                    <url>${env.DB_URL:-jdbc:postgresql://localhost:5432/securemarts}</url>
+                    <user>${env.DB_USERNAME:-securemarts}</user>
+                    <password>${env.DB_PASSWORD:-securemarts}</password>
+                    <locations>classpath:db/migration</locations>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

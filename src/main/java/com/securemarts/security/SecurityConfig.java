@@ -35,6 +35,7 @@ public class SecurityConfig {
             "/auth/verify-phone",
             "/auth/reset-password/request",
             "/auth/reset-password/confirm",
+            "/auth/google",
             "/rider/auth/register",
             "/rider/auth/login",
             "/rider/auth/refresh",
@@ -70,6 +71,7 @@ public class SecurityConfig {
                         .requestMatchers("/discovery/**").permitAll()
                         .requestMatchers("/stores/*/cart/**").permitAll()
                         .requestMatchers("/stores/*/pricing/apply").permitAll()
+                        .requestMatchers("/places/**").permitAll()
                         .requestMatchers("/webhooks/**").permitAll()
                         .requestMatchers("/admin/auth/login", "/admin/auth/complete-setup").permitAll()
                         .requestMatchers("/admin/**").hasAnyRole("PLATFORM_ADMIN", "SUPERUSER", "SUPPORT")

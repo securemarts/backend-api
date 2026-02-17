@@ -103,4 +103,10 @@ public class AuthController {
         authService.confirmResetPassword(request);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
+
+    @PostMapping("/google")
+    @Operation(summary = "Google Sign-In", description = "Verify Google ID token and sign in or create user. Send idToken from client and role (e.g. CUSTOMER). New users get the given role; existing users keep their existing role.")
+    public ResponseEntity<TokenResponse> googleSignIn(@Valid @RequestBody GoogleSignInRequest request) {
+        return ResponseEntity.ok(authService.googleSignIn(request));
+    }
 }

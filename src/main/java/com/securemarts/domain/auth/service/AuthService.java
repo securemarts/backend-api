@@ -3,6 +3,8 @@ package com.securemarts.domain.auth.service;
 import com.securemarts.common.exception.BusinessRuleException;
 import com.securemarts.domain.auth.dto.*;
 import com.securemarts.domain.auth.entity.*;
+import com.securemarts.domain.auth.google.GoogleIdTokenVerifier;
+import com.securemarts.domain.auth.google.GoogleTokenInfo;
 import com.securemarts.domain.auth.repository.*;
 import com.securemarts.mail.EmailService;
 import com.securemarts.security.JwtProperties;
@@ -41,6 +43,7 @@ public class AuthService {
     private final LoginRateLimiter loginRateLimiter;
     private final EmailVerificationService emailVerificationService;
     private final EmailService emailService;
+    private final GoogleIdTokenVerifier googleIdTokenVerifier;
 
     @Value("${app.auth.max-login-attempts:5}")
     private int maxLoginAttempts;
@@ -80,6 +83,36 @@ public class AuthService {
         } catch (Exception e) {
             log.error("Failed to send verification OTP to {} – user created but email not sent: {}", user.getEmail(), e.getMessage(), e);
             // Don't fail registration; user can use /auth/verify-email/resend
+        }
+        return buildTokenResponse(user, null);
+    }
+
+    @Transactional
+    public TokenResponse googleSignIn(GoogleSignInRequest request) {
+        GoogleTokenInfo info = googleIdTokenVerifier.verify(request.getIdToken());
+        String email = info.getEmail().trim().toLowerCase();
+        Optional<User> existing = userRepository.findByEmailWithRolesAndPermissions(email);
+        User user;
+        if (existing.isPresent()) {
+            user = existing.get();
+            if (user.isLocked()) {
+                throw new BusinessRuleException("Account is locked.");
+            }
+        } else {
+            user = new User();
+            user.setEmail(email);
+            user.setPhone(null);
+            user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+            user.setFirstName(info.getGivenName() != null ? info.getGivenName().trim() : "");
+            user.setLastName(info.getFamilyName() != null ? info.getFamilyName().trim() : "");
+            user.setUserType(request.getRole());
+            user.setEmailVerified(true);
+            user.setPhoneVerified(false);
+            user.setLocked(false);
+            user.setFailedLoginAttempts(0);
+            assignDefaultRole(user, request.getRole());
+            user = userRepository.save(user);
+            log.info("User registered via Google: {}", user.getEmail());
         }
         return buildTokenResponse(user, null);
     }

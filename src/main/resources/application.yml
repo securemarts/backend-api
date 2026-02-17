@@ -27,6 +27,8 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # Fix checksum mismatch (e.g. V12 changed after apply): repair then migrate. Set false after first successful start if preferred.
+    repair-on-migrate: true
 
   cache:
     type: caffeine
@@ -58,6 +60,11 @@ app:
     access-ttl: 900
     refresh-ttl: 604800
     issuer: securemarts-platform
+  google:
+    # OAuth2 client ID for Google Sign-In; used to validate id_token aud. If empty, aud is not checked.
+    client-id: ${APP_GOOGLE_CLIENT_ID:}
+    # API key for Places API (autocomplete, place details). Required for /places/* endpoints.
+    places-api-key: ${APP_GOOGLE_PLACES_API_KEY:}
   auth:
     max-login-attempts: 5
     lockout-duration-minutes: 30
