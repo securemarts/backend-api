@@ -1,7 +1,7 @@
 # Securemarts API – common commands for devs
 # Run `make` or `make help` to list targets.
 
-.PHONY: help start stop up down build logs run run-local db clean test
+.PHONY: help start stop up down build rebuild-app logs run run-local db clean test
 
 # Default target: show help
 help:
@@ -12,6 +12,7 @@ help:
 	@echo "  make stop      Stop all containers"
 	@echo "  make down      Same as stop"
 	@echo "  make build     Build and start (docker compose up --build -d)"
+	@echo "  make rebuild-app  Rebuild app image with no cache, then start (use after adding new code)"
 	@echo "  make logs      Follow app + postgres logs"
 	@echo "  make run       Run app locally with Maven (needs Postgres on localhost:5432)"
 	@echo "  make run-local Start Postgres in Docker, then run app locally (DB on port 5433)"
@@ -27,6 +28,11 @@ start up:
 # Build images and start
 build:
 	docker compose up --build -d
+
+# Rebuild app image from scratch (no cache). Use after adding new code (e.g. favorites) so the image includes it.
+rebuild-app:
+	docker compose build --no-cache app
+	docker compose up -d
 
 # Stop all services
 stop down:
