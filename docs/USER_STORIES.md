@@ -2,6 +2,8 @@
 
 User stories below are derived from the backend controllers and mapped to each app surface. Each story references the relevant API path(s) so frontend/mobile devs know what to integrate.
 
+**Per-app handoff (for devs):** [Landing](user-stories-landing.md) · [Merchant Dashboard](user-stories-merchant.md) · [Securemarts Users (Customer) App](user-stories-customer.md) · [Riders App](user-stories-rider.md) · [Platform Admin](user-stories-admin.md)
+
 ---
 
 ## 1. Landing Page (Public, no auth)

@@ -47,8 +47,14 @@ server:
 
 # JWT
 app:
-  uploads:
-    path: ${UPLOADS_PATH:./uploads}
+  storage:
+    spaces:
+      bucket: ${APP_STORAGE_SPACES_BUCKET:}
+      region: ${APP_STORAGE_SPACES_REGION:}
+      endpoint: ${APP_STORAGE_SPACES_ENDPOINT:}
+      access-key-id: ${APP_STORAGE_SPACES_ACCESS_KEY_ID:}
+      secret-access-key: ${APP_STORAGE_SPACES_SECRET_ACCESS_KEY:}
+      public-base-url: ${APP_STORAGE_PUBLIC_BASE_URL:}
   mail:
     from: ${APP_MAIL_FROM:noreply@securemarts.local}
     from-name: ${APP_MAIL_FROM_NAME:Securemarts}

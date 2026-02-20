@@ -1,6 +1,7 @@
 package com.securemarts.domain.rider.service;
 
 import com.securemarts.common.exception.ResourceNotFoundException;
+import com.securemarts.common.exception.StorageNotConfiguredException;
 import com.securemarts.common.util.GeoUtils;
 import com.securemarts.domain.catalog.service.FileStorageService;
 import com.securemarts.domain.logistics.entity.DeliveryOrder;
@@ -276,7 +277,13 @@ public class RiderDeliveryService {
         try {
             if (file != null && !file.isEmpty()) {
                 fileUrl = fileStorageService.storePod(deliveryOrderPublicId, file);
+                if (fileUrl == null) {
+                    throw new StorageNotConfiguredException(
+                            "File storage is not configured. Set APP_STORAGE_SPACES_* in .env for uploads. See .env.example for required variables.");
+                }
             }
+        } catch (StorageNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to store POD file", e);
         }

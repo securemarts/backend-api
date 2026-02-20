@@ -1,3 +1,4 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
 com.securemarts.config.DotenvEnvironmentPostProcessor,\
+com.securemarts.config.DbUrlNormalizerPostProcessor,\
 com.securemarts.config.DatabaseUrlEnvironmentPostProcessor

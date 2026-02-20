@@ -102,6 +102,12 @@ public class GlobalExceptionHandler {
                 ApiResponse.error("BUSINESS_RULE_VIOLATION", ex.getMessage()));
     }
 
+    @ExceptionHandler(StorageNotConfiguredException.class)
+    public ResponseEntity<?> handleStorageNotConfigured(StorageNotConfiguredException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                ApiResponse.error("STORAGE_NOT_CONFIGURED", ex.getMessage()));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<?> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
         String message = ex.getMessage();

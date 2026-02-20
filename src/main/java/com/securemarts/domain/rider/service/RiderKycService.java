@@ -1,6 +1,7 @@
 package com.securemarts.domain.rider.service;
 
 import com.securemarts.common.exception.ResourceNotFoundException;
+import com.securemarts.common.exception.StorageNotConfiguredException;
 import com.securemarts.domain.catalog.service.FileStorageService;
 import com.securemarts.domain.logistics.entity.Rider;
 import com.securemarts.domain.logistics.entity.RiderDocument;
@@ -45,7 +46,8 @@ public class RiderKycService {
             throw new RuntimeException("Failed to store document", e);
         }
         if (fileUrl == null) {
-            throw new RuntimeException("Failed to store document");
+            throw new StorageNotConfiguredException(
+                    "File storage is not configured. Set APP_STORAGE_SPACES_* in .env for uploads. See .env.example for required variables.");
         }
         RiderDocument doc = new RiderDocument();
         doc.setRider(rider);

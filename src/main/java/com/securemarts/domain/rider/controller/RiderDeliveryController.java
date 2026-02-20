@@ -1,7 +1,9 @@
 package com.securemarts.domain.rider.controller;
 
 import com.securemarts.domain.catalog.service.FileStorageService;
+import com.securemarts.domain.logistics.entity.ProofOfDelivery;
 import com.securemarts.domain.logistics.repository.DeliveryOrderRepository;
+import com.securemarts.domain.logistics.repository.ProofOfDeliveryRepository;
 import com.securemarts.domain.rider.dto.AvailableDeliveryResponse;
 import com.securemarts.domain.rider.dto.CompleteDeliveryRequest;
 import com.securemarts.domain.rider.dto.RiderDeliveryResponse;
@@ -16,9 +18,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -26,10 +26,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.util.Map;
-import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/rider/deliveries")
@@ -41,6 +39,7 @@ public class RiderDeliveryController {
     private final RiderDeliveryService riderDeliveryService;
     private final FileStorageService fileStorageService;
     private final DeliveryOrderRepository deliveryOrderRepository;
+    private final ProofOfDeliveryRepository proofOfDeliveryRepository;
     private final RiderSseRegistry riderSseRegistry;
 
     @GetMapping
@@ -151,24 +150,24 @@ public class RiderDeliveryController {
     }
 
     @GetMapping("/{deliveryOrderPublicId}/pod/{filename}")
-    @Operation(summary = "Serve POD file (for uploaded photo/signature)")
-    public ResponseEntity<InputStreamResource> servePodFile(
+    @Operation(summary = "Redirect to POD file (stored in Spaces). Returns 302 to the file URL or 404 if not found.")
+    public ResponseEntity<Void> servePodFile(
             @AuthenticationPrincipal String riderPublicId,
             @PathVariable String deliveryOrderPublicId,
-            @PathVariable String filename) throws Exception {
+            @PathVariable String filename) {
         var d = deliveryOrderRepository.findByPublicId(deliveryOrderPublicId).orElse(null);
         if (d == null || d.getRider() == null || !d.getRider().getPublicId().equals(riderPublicId)) {
             return ResponseEntity.notFound().build();
         }
-        Path file = fileStorageService.resolvePodFile(deliveryOrderPublicId, filename);
-        if (file == null || !Files.exists(file) || !Files.isRegularFile(file)) {
+        List<ProofOfDelivery> pods = proofOfDeliveryRepository.findByDeliveryOrderId(d.getId());
+        String fileUrl = pods.stream()
+                .map(ProofOfDelivery::getFileUrl)
+                .filter(url -> url != null && !url.isBlank() && (url.endsWith(filename) || url.contains("/" + filename)))
+                .findFirst()
+                .orElse(null);
+        if (fileUrl == null || !fileUrl.startsWith("http")) {
             return ResponseEntity.notFound().build();
         }
-        String contentType = Files.probeContentType(file);
-        if (contentType == null) contentType = "application/octet-stream";
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
-                .body(new InputStreamResource(Files.newInputStream(file)));
+        return ResponseEntity.status(HttpStatus.FOUND).location(java.net.URI.create(fileUrl)).build();
     }
 }

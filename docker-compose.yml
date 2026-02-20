@@ -32,13 +32,15 @@ services:
       APP_PAYMENT_PAYSTACK_PUBLIC_KEY: ${APP_PAYMENT_PAYSTACK_PUBLIC_KEY:-}
       APP_MAIL_FROM: ${APP_MAIL_FROM:-noreply@securemarts.local}
       APP_MAIL_ZEPTO_API_KEY: ${APP_MAIL_ZEPTO_API_KEY:-}
-      UPLOADS_PATH: /app/uploads
+      APP_STORAGE_SPACES_BUCKET: ${APP_STORAGE_SPACES_BUCKET:}
+      APP_STORAGE_SPACES_REGION: ${APP_STORAGE_SPACES_REGION:}
+      APP_STORAGE_SPACES_ENDPOINT: ${APP_STORAGE_SPACES_ENDPOINT:}
+      APP_STORAGE_SPACES_ACCESS_KEY_ID: ${APP_STORAGE_SPACES_ACCESS_KEY_ID:}
+      APP_STORAGE_SPACES_SECRET_ACCESS_KEY: ${APP_STORAGE_SPACES_SECRET_ACCESS_KEY:}
+      APP_STORAGE_PUBLIC_BASE_URL: ${APP_STORAGE_PUBLIC_BASE_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - uploads_data:/app/uploads
 
 volumes:
   postgres_data:
-  uploads_data:

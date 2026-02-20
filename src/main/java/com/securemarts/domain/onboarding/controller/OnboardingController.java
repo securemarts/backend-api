@@ -1,5 +1,6 @@
 package com.securemarts.domain.onboarding.controller;
 
+import com.securemarts.common.exception.StorageNotConfiguredException;
 import com.securemarts.domain.catalog.service.FileStorageService;
 import com.securemarts.common.dto.ApiResponse;
 import com.securemarts.domain.onboarding.dto.*;
@@ -78,7 +79,8 @@ public class OnboardingController {
         }
         String fileUrl = fileStorageService.storeBusinessDocument(businessPublicId, file);
         if (fileUrl == null) {
-            throw new IllegalArgumentException("Failed to store file");
+            throw new StorageNotConfiguredException(
+                    "File storage is not configured. Set APP_STORAGE_SPACES_* in .env for uploads. See .env.example for required variables.");
         }
         UploadComplianceDocumentRequest request = new UploadComplianceDocumentRequest();
         request.setDocumentType(documentType);

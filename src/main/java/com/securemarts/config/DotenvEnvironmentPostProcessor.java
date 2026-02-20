@@ -43,8 +43,10 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor,
                 if (value.length() >= 2 && ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")))) {
                     value = value.substring(1, value.length() - 1);
                 }
+                // Env var wins: propagate to system property so Spring (which may read system props first) uses it
                 if (System.getProperty(key) == null) {
-                    System.setProperty(key, value);
+                    String envValue = System.getenv(key);
+                    System.setProperty(key, envValue != null ? envValue : value);
                 }
             }
         } catch (IOException ignored) {
