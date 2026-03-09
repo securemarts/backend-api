@@ -91,14 +91,14 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password/request")
-    @Operation(summary = "Request password reset", description = "Send reset link to email")
+    @Operation(summary = "Request password reset", description = "Send 5-digit OTP to email")
     public ResponseEntity<?> requestResetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.requestResetPassword(request);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/reset-password/confirm")
-    @Operation(summary = "Confirm password reset", description = "Set new password using token from email")
+    @Operation(summary = "Confirm password reset", description = "Set new password using email and 5-digit OTP from email")
     public ResponseEntity<?> confirmResetPassword(@Valid @RequestBody ConfirmResetPasswordRequest request) {
         authService.confirmResetPassword(request);
         return ResponseEntity.ok(ApiResponse.success(null));

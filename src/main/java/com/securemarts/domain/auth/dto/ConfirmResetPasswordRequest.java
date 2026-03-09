@@ -6,12 +6,16 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-@Schema(description = "Confirm password reset with token")
+@Schema(description = "Confirm password reset with email and 5-digit OTP code")
 public class ConfirmResetPasswordRequest {
 
     @NotBlank
-    @Schema(description = "Reset token from email", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String token;
+    @Schema(description = "Email address", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String email;
+
+    @NotBlank
+    @Schema(description = "5-digit OTP code from email", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String code;
 
     @NotBlank
     @Size(min = 8, max = 100)

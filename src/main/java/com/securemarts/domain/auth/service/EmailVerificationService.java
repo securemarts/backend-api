@@ -25,6 +25,7 @@ import java.util.HexFormat;
 public class EmailVerificationService {
 
     private static final int OTP_LENGTH = 6;
+    private static final int PASSWORD_RESET_OTP_LENGTH = 5;
     private static final int OTP_EXPIRY_MINUTES = 10;
 
     private final EmailVerificationOtpRepository otpRepository;
@@ -61,6 +62,35 @@ public class EmailVerificationService {
     }
 
     /**
+     * Generate 5-digit OTP for password reset, store hash, send password-reset email. Replaces any existing PASSWORD_RESET OTP for this email.
+     */
+    @Transactional
+    public String createAndSendPasswordResetOtp(String email, String recipientName) {
+        String normalizedEmail = email.trim().toLowerCase();
+        String otp = generateOtp(PASSWORD_RESET_OTP_LENGTH);
+        String otpHash = hashOtp(otp);
+
+        otpRepository.deleteByEmailIgnoreCaseAndTargetType(normalizedEmail, EmailVerificationOtp.TargetType.PASSWORD_RESET);
+        otpRepository.flush();
+
+        EmailVerificationOtp entity = new EmailVerificationOtp();
+        entity.setEmail(normalizedEmail);
+        entity.setOtpHash(otpHash);
+        entity.setTargetType(EmailVerificationOtp.TargetType.PASSWORD_RESET);
+        entity.setExpiresAt(Instant.now().plusSeconds(OTP_EXPIRY_MINUTES * 60L));
+        otpRepository.save(entity);
+
+        log.info("Sending password reset OTP to {}", normalizedEmail);
+        try {
+            otpEmailSender.sendPasswordResetOtpEmail(normalizedEmail, otp, recipientName);
+            log.info("Password reset OTP sent to {}", normalizedEmail);
+        } catch (Exception e) {
+            log.error("Failed to send password reset OTP to {}: {}", normalizedEmail, e.getMessage(), e);
+        }
+        return otp;
+    }
+
+    /**
      * Verify code for email+type. Returns true if valid and consumes the OTP.
      */
     @Transactional
@@ -81,9 +111,13 @@ public class EmailVerificationService {
     }
 
     private static String generateOtp() {
+        return generateOtp(OTP_LENGTH);
+    }
+
+    private static String generateOtp(int length) {
         SecureRandom r = new SecureRandom();
-        StringBuilder sb = new StringBuilder(OTP_LENGTH);
-        for (int i = 0; i < OTP_LENGTH; i++) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
             sb.append(r.nextInt(10));
         }
         return sb.toString();

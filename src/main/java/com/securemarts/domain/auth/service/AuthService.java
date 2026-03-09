@@ -234,33 +234,19 @@ public class AuthService {
     @Transactional
     public void requestResetPassword(ResetPasswordRequest request) {
         userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
-            String rawToken = UUID.randomUUID().toString();
-            String tokenHash = hashToken(rawToken);
-            PasswordResetToken prt = new PasswordResetToken();
-            prt.setUser(user);
-            prt.setTokenHash(tokenHash);
-            prt.setExpiresAt(Instant.now().plusSeconds(3600));
-            passwordResetTokenRepository.save(prt);
-            String resetLink = (passwordResetBaseUrl != null && !passwordResetBaseUrl.isBlank())
-                    ? passwordResetBaseUrl + (passwordResetBaseUrl.contains("?") ? "&" : "?") + "token=" + rawToken
-                    : "Token (use in app within 1 hour): " + rawToken;
-            emailService.sendPasswordReset(user.getEmail(), resetLink, user.getFirstName());
-            log.info("Password reset email sent to {}", user.getEmail());
+            emailVerificationService.createAndSendPasswordResetOtp(user.getEmail(), user.getFirstName());
+            log.info("Password reset OTP sent to {}", user.getEmail());
         });
     }
 
     @Transactional
     public void confirmResetPassword(ConfirmResetPasswordRequest request) {
-        String tokenHash = hashToken(request.getToken());
-        PasswordResetToken prt = passwordResetTokenRepository.findByTokenHashAndUsedAtIsNull(tokenHash)
-                .orElseThrow(() -> new BusinessRuleException("Invalid or expired reset token"));
-        if (!prt.isValid()) {
-            throw new BusinessRuleException("Reset token has expired");
-        }
-        prt.getUser().setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(prt.getUser());
-        prt.setUsedAt(Instant.now());
-        passwordResetTokenRepository.save(prt);
+        String email = request.getEmail().trim().toLowerCase();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessRuleException("Invalid or expired reset code"));
+        emailVerificationService.verify(email, request.getCode(), EmailVerificationOtp.TargetType.PASSWORD_RESET);
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     private TokenResponse buildTokenResponse(User user, Long storeId) {

@@ -72,6 +72,16 @@ public class EmailService {
     }
 
     /**
+     * Send 5-digit OTP for password reset. Use with forgot-password flow.
+     */
+    public void sendPasswordResetOtp(String to, String otp, String recipientName) {
+        String name = recipientName != null && !recipientName.isBlank() ? recipientName : "there";
+        String subject = "Reset your password - Securemarts";
+        String htmlBody = "<div><p>Hi " + escapeHtml(name) + ",</p><p>Your password reset code is: <b>" + escapeHtml(otp) + "</b></p><p>This code expires in 10 minutes.</p><p>If you didn't request this, you can ignore this email.</p><p>- Securemarts</p></div>";
+        zeptomailClient.send(to, name, subject, htmlBody, null);
+    }
+
+    /**
      * Send password reset link/instruction. Use with your token/link.
      */
     public void sendPasswordReset(String to, String resetLink, String recipientName) {

@@ -35,6 +35,7 @@ public class EmailVerificationOtp extends BaseEntity {
 
     public enum TargetType {
         USER,
-        RIDER
+        RIDER,
+        PASSWORD_RESET
     }
 }

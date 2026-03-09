@@ -19,4 +19,9 @@ public class OtpEmailSender {
     public void sendOtpEmail(String email, String otp, String recipientName) {
         emailService.sendVerificationOtp(email, otp, recipientName);
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendPasswordResetOtpEmail(String email, String otp, String recipientName) {
+        emailService.sendPasswordResetOtp(email, otp, recipientName);
+    }
 }
