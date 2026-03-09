@@ -63,7 +63,7 @@ app:
   jwt:
     access-secret: ${JWT_ACCESS_SECRET:your-256-bit-secret-for-access-token-min-32-chars}
     refresh-secret: ${JWT_REFRESH_SECRET:your-256-bit-secret-for-refresh-token-min-32-chars}
-    access-ttl: 900
+    access-ttl: 43200
     refresh-ttl: 604800
     issuer: securemarts-platform
   google:

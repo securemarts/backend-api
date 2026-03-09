@@ -177,6 +177,123 @@ public class CatalogController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    @PostMapping(value = "/{productPublicId}/variants/{variantPublicId}/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Attach media to variant", description = "Upload one or more images; they are stored in DigitalOcean Spaces and attached to this variant (e.g. color/size images). Use multipart form with part name 'media' (image files).")
+    @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
+    public ResponseEntity<ProductResponse> attachMediaToVariant(
+            @AuthenticationPrincipal String userPublicId,
+            @Parameter(description = "Store public ID") @PathVariable String storePublicId,
+            @Parameter(description = "Product public ID") @PathVariable String productPublicId,
+            @Parameter(description = "Variant public ID") @PathVariable String variantPublicId,
+            @Parameter(description = "Image files to upload to Spaces and attach to the variant") @RequestPart(value = "media", required = false) List<MultipartFile> mediaFiles) throws java.io.IOException {
+        storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
+        merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
+        Long storeId = catalogService.resolveStoreId(storePublicId);
+        ensureStoreAccess(storeId);
+        return ResponseEntity.ok(catalogService.attachMediaToVariant(storeId, productPublicId, variantPublicId, mediaFiles));
+    }
+
+    @DeleteMapping("/{productPublicId}/variants/{variantPublicId}/media/{mediaPublicId}")
+    @Operation(summary = "Detach media from variant", description = "Detach a single media item from a variant. Does not delete the media itself.")
+    @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
+    public ResponseEntity<ProductResponse> detachMediaFromVariant(
+            @AuthenticationPrincipal String userPublicId,
+            @Parameter(description = "Store public ID") @PathVariable String storePublicId,
+            @Parameter(description = "Product public ID") @PathVariable String productPublicId,
+            @Parameter(description = "Variant public ID") @PathVariable String variantPublicId,
+            @Parameter(description = "Media public ID") @PathVariable String mediaPublicId) {
+        storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
+        merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
+        Long storeId = catalogService.resolveStoreId(storePublicId);
+        ensureStoreAccess(storeId);
+        return ResponseEntity.ok(catalogService.detachMediaFromVariant(storeId, productPublicId, variantPublicId, mediaPublicId));
+    }
+
+    @PostMapping(value = "/{productPublicId}/variants", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Add variant (JSON)", description = "Add a variant with JSON body only (no media). For variant + images use the multipart endpoint.")
+    @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
+    public ResponseEntity<ProductResponse> addVariantJson(
+            @AuthenticationPrincipal String userPublicId,
+            @Parameter(description = "Store public ID") @PathVariable String storePublicId,
+            @Parameter(description = "Product public ID") @PathVariable String productPublicId,
+            @Valid @RequestBody ProductRequest.ProductVariantRequest request) throws java.io.IOException {
+        storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
+        merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
+        Long storeId = catalogService.resolveStoreId(storePublicId);
+        ensureStoreAccess(storeId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(catalogService.addVariant(storeId, productPublicId, request));
+    }
+
+    @PostMapping(value = "/{productPublicId}/variants", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "Add variant with media",
+            description = "Add a variant and upload images. Multipart form fields: "
+                    + "sku, title, priceAmount, compareAtAmount (optional), currency (default NGN), attributesJson (optional), position (optional), "
+                    + "and one or more image files as 'media'."
+    )
+    @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
+    public ResponseEntity<ProductResponse> addVariantWithMedia(
+            @AuthenticationPrincipal String userPublicId,
+            @Parameter(description = "Store public ID") @PathVariable String storePublicId,
+            @Parameter(description = "Product public ID") @PathVariable String productPublicId,
+            @RequestPart(required = false) String sku,
+            @RequestPart(required = false) String title,
+            @RequestPart java.math.BigDecimal priceAmount,
+            @RequestPart(required = false) java.math.BigDecimal compareAtAmount,
+            @RequestPart(required = false) String currency,
+            @RequestPart(required = false) String attributesJson,
+            @RequestPart(required = false) Integer position,
+            @Parameter(description = "Optional image files to upload to Spaces and attach to the new variant")
+            @RequestPart(value = "media", required = false) List<MultipartFile> mediaFiles) throws java.io.IOException {
+        storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
+        merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
+        Long storeId = catalogService.resolveStoreId(storePublicId);
+        ensureStoreAccess(storeId);
+        ProductRequest.ProductVariantRequest request = new ProductRequest.ProductVariantRequest();
+        request.setSku(sku);
+        request.setTitle(title);
+        request.setPriceAmount(priceAmount);
+        request.setCompareAtAmount(compareAtAmount);
+        request.setCurrency(currency != null && !currency.isBlank() ? currency : "NGN");
+        request.setAttributesJson(attributesJson);
+        if (position != null) {
+            request.setPosition(position);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(catalogService.addVariantWithMedia(storeId, productPublicId, request, mediaFiles));
+    }
+
+    @PutMapping("/{productPublicId}/variants/{variantPublicId}")
+    @Operation(summary = "Update product variant")
+    @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
+    public ResponseEntity<ProductResponse> updateVariant(
+            @AuthenticationPrincipal String userPublicId,
+            @Parameter(description = "Store public ID") @PathVariable String storePublicId,
+            @Parameter(description = "Product public ID") @PathVariable String productPublicId,
+            @Parameter(description = "Variant public ID") @PathVariable String variantPublicId,
+            @Valid @RequestBody ProductRequest.ProductVariantRequest request) {
+        storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
+        merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
+        Long storeId = catalogService.resolveStoreId(storePublicId);
+        ensureStoreAccess(storeId);
+        return ResponseEntity.ok(catalogService.updateVariant(storeId, productPublicId, variantPublicId, request));
+    }
+
+    @DeleteMapping("/{productPublicId}/variants/{variantPublicId}")
+    @Operation(summary = "Remove variant from product", description = "Fails if this is the product's only variant.")
+    @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
+    public ResponseEntity<ProductResponse> deleteVariant(
+            @AuthenticationPrincipal String userPublicId,
+            @Parameter(description = "Store public ID") @PathVariable String storePublicId,
+            @Parameter(description = "Product public ID") @PathVariable String productPublicId,
+            @Parameter(description = "Variant public ID") @PathVariable String variantPublicId) {
+        storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
+        merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
+        Long storeId = catalogService.resolveStoreId(storePublicId);
+        ensureStoreAccess(storeId);
+        return ResponseEntity.ok(catalogService.deleteVariant(storeId, productPublicId, variantPublicId));
+    }
+
     private void ensureStoreAccess(Long storeId) {
         Long currentStore = CurrentTenant.getStoreId();
         if (currentStore != null && !currentStore.equals(storeId)) {

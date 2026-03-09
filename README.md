@@ -134,7 +134,8 @@ Swagger is implemented with **springdoc-openapi**. It’s enabled by default and
 **Using Swagger UI:**
 
 1. Open **http://localhost:8080/api/v1/swagger-ui.html** in your browser.
-2. You’ll see all tags (Auth, Business & Store Onboarding, Product Catalog, Cart, Inventory, Orders, Payments, Pricing, etc.) and endpoints.
+2. Use the **group** dropdown at the top: choose **"All"** to see every endpoint (Auth, Onboarding, Products, Cart, Orders, Invoices, Customers, POS, Admin, etc.). Choose **"Merchant - Customers & Invoicing"** to see only Store customers and Invoices.
+3. You’ll see all tags (Auth, Business & Store Onboarding, Product Catalog, Cart, Inventory, Orders, Payments, Pricing, **Store customers**, **Invoices**, etc.) and endpoints.
 3. **Public endpoints** (e.g. `POST /auth/register`, `POST /auth/login`, `GET/POST .../cart/...`) can be called directly from “Try it out”.
 4. **Protected endpoints** require a JWT:
    - Call `POST /auth/login` (or register), copy the `accessToken` from the response.

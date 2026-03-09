@@ -19,6 +19,8 @@ public class BusinessResponse {
     private String tradeName;
     private String cacNumber;
     private String taxId;
+    private String logoUrl;
+    private String businessTypeCode;
     private String verificationStatus;
     private Instant createdAt;
     private List<StoreSummary> stores;
@@ -30,6 +32,8 @@ public class BusinessResponse {
                 .tradeName(b.getTradeName())
                 .cacNumber(b.getCacNumber())
                 .taxId(b.getTaxId())
+                .logoUrl(b.getLogoUrl())
+                .businessTypeCode(b.getBusinessType() != null ? b.getBusinessType().getCode() : null)
                 .verificationStatus(b.getVerificationStatus() != null ? b.getVerificationStatus().name() : "PENDING")
                 .createdAt(b.getCreatedAt())
                 .stores(b.getStores() != null ? b.getStores().stream()

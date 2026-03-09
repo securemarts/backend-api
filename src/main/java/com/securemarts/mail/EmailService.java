@@ -58,6 +58,20 @@ public class EmailService {
     }
 
     /**
+     * Send welcome-onboard email after business creation. Tells the merchant they can start creating stores and products.
+     */
+    public void sendWelcomeOnboard(String to, String recipientName) {
+        String name = recipientName != null && !recipientName.isBlank() ? recipientName : "there";
+        String subject = "Welcome onboard - Securemarts";
+        String htmlBody = "<div><p>Hi " + escapeHtml(name) + ",</p>"
+            + "<p>Welcome onboard! Your business has been set up successfully.</p>"
+            + "<p>You can now start creating stores, adding products, and managing your business from your dashboard.</p>"
+            + "<p>If you have any questions, we're here to help.</p>"
+            + "<p>- Securemarts</p></div>";
+        zeptomailClient.send(to, name, subject, htmlBody, null);
+    }
+
+    /**
      * Send password reset link/instruction. Use with your token/link.
      */
     public void sendPasswordReset(String to, String resetLink, String recipientName) {

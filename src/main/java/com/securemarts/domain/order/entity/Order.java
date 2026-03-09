@@ -12,7 +12,8 @@ import java.util.List;
 @Entity
 @Table(name = "orders", indexes = {
         @Index(name = "idx_orders_store_id", columnList = "store_id"),
-        @Index(name = "idx_orders_store_number", columnList = "store_id, order_number", unique = true)
+        @Index(name = "idx_orders_store_number", columnList = "store_id, order_number", unique = true),
+        @Index(name = "idx_orders_origin", columnList = "origin")
 })
 @Getter
 @Setter
@@ -30,6 +31,10 @@ public class Order extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private OrderStatus status = OrderStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private OrderOrigin origin = OrderOrigin.ONLINE;
 
     @Column(name = "total_amount", nullable = false, precision = 19, scale = 4)
     private BigDecimal totalAmount;
@@ -59,5 +64,10 @@ public class Order extends BaseEntity {
         DELIVERED,
         CANCELLED,
         REFUNDED
+    }
+
+    public enum OrderOrigin {
+        ONLINE,
+        PICKUP
     }
 }

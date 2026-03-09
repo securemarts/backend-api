@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "product_variants", indexes = {
@@ -39,4 +41,15 @@ public class ProductVariant extends BaseEntity {
 
     @Column(nullable = false)
     private int position;
+
+    /**
+     * Optional variant-specific media (e.g. color images). Product-level media stays on Product.media.
+     */
+    @ManyToMany
+    @JoinTable(
+            name = "product_variant_media",
+            joinColumns = @JoinColumn(name = "variant_id"),
+            inverseJoinColumns = @JoinColumn(name = "media_id")
+    )
+    private Set<ProductMedia> media = new HashSet<>();
 }

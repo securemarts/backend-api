@@ -10,7 +10,9 @@ import com.securemarts.domain.order.dto.OrderResponse;
 import com.securemarts.domain.order.entity.Order;
 import com.securemarts.domain.order.entity.OrderItem;
 import com.securemarts.domain.order.repository.OrderRepository;
+import com.securemarts.domain.onboarding.entity.Store;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
+import com.securemarts.domain.onboarding.service.StoreChannelService;
 import com.securemarts.domain.payment.dto.InitiatePaymentRequest;
 import com.securemarts.domain.payment.dto.PaymentResponse;
 import com.securemarts.domain.payment.service.PaymentService;
@@ -28,11 +30,15 @@ public class CheckoutService {
     private final CartRepository cartRepository;
     private final OrderRepository orderRepository;
     private final StoreRepository storeRepository;
+    private final StoreChannelService storeChannelService;
     private final InventoryService inventoryService;
     private final PaymentService paymentService;
 
     @Transactional
     public Order createOrderFromCart(Long storeId, Long customerId, String cartPublicId, String deliveryAddress, java.math.BigDecimal deliveryLat, java.math.BigDecimal deliveryLng) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
+        storeChannelService.ensureOnlineEnabled(store);
         Cart cart = cartService.getCart(storeId, cartPublicId);
         if (cart.getItems().isEmpty()) {
             throw new BusinessRuleException("Cart is empty");
@@ -50,6 +56,7 @@ public class CheckoutService {
         order.setCustomerId(customerId != null ? customerId : cart.getCustomerId());
         order.setOrderNumber(orderNumber);
         order.setStatus(Order.OrderStatus.PENDING);
+        order.setOrigin(Order.OrderOrigin.ONLINE);
         order.setCurrency(storeRepository.findById(storeId).map(s -> s.getDefaultCurrency()).orElse("NGN"));
         BigDecimal total = BigDecimal.ZERO;
         for (CartItem ci : cart.getItems()) {

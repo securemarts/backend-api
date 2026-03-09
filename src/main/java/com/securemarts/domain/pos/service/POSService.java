@@ -10,6 +10,9 @@ import com.securemarts.domain.inventory.repository.InventoryMovementRepository;
 import com.securemarts.domain.inventory.repository.LocationRepository;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
 import com.securemarts.domain.onboarding.service.SubscriptionLimitsService;
+import com.securemarts.domain.invoice.dto.PosCreditLineDto;
+import com.securemarts.domain.invoice.entity.Invoice;
+import com.securemarts.domain.invoice.service.InvoiceService;
 import com.securemarts.domain.pos.dto.*;
 import com.securemarts.domain.pos.entity.*;
 import com.securemarts.domain.pos.repository.*;
@@ -36,6 +39,7 @@ public class POSService {
     private final InventoryItemRepository inventoryItemRepository;
     private final InventoryMovementRepository inventoryMovementRepository;
     private final LocationRepository locationRepository;
+    private final InvoiceService invoiceService;
 
     @Transactional
     public POSRegisterResponse createRegister(Long storeId, CreatePOSRegisterRequest request) {
@@ -174,6 +178,24 @@ public class POSService {
                             item.setTotalPrice(itemDto.getTotalPrice());
                             tx.getItems().add(item);
                         }
+                    }
+                    boolean isCredit = "CREDIT".equalsIgnoreCase(dto.getPaymentType())
+                            && dto.getStoreCustomerPublicId() != null && !dto.getStoreCustomerPublicId().isBlank();
+                    if (isCredit) {
+                        List<PosCreditLineDto> lines = dto.getItems() != null ? dto.getItems().stream()
+                                .map(it -> {
+                                    PosCreditLineDto line = new PosCreditLineDto();
+                                    line.setVariantPublicId(it.getProductVariantPublicId());
+                                    line.setQuantity(it.getQuantity());
+                                    line.setUnitPrice(it.getUnitPrice());
+                                    line.setTotalPrice(it.getTotalPrice());
+                                    return line;
+                                })
+                                .toList() : List.of();
+                        Invoice inv = invoiceService.createFromPosCredit(storeId, dto.getStoreCustomerPublicId(),
+                                tx.getAmount(), tx.getCurrency(), lines);
+                        tx.setStoreCustomerId(inv.getStoreCustomerId());
+                        tx.setInvoiceId(inv.getId());
                     }
                     tx = offlineTransactionRepository.save(tx);
                     deductInventoryForTransaction(storeId, register.getLocationId(), tx);

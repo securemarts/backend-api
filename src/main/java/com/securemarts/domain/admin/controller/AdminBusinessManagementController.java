@@ -3,13 +3,17 @@ package com.securemarts.domain.admin.controller;
 import com.securemarts.common.dto.PageResponse;
 import com.securemarts.domain.admin.dto.AdminSubscriptionUpdateRequest;
 import com.securemarts.domain.admin.dto.BusinessVerificationUpdateRequest;
+import com.securemarts.domain.admin.repository.AdminRepository;
 import com.securemarts.domain.admin.service.AdminService;
+import com.securemarts.domain.audit.entity.AuditLog;
+import com.securemarts.domain.audit.service.AuditLogService;
 import com.securemarts.domain.onboarding.dto.BusinessResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +31,8 @@ import org.springframework.web.bind.annotation.*;
 public class AdminBusinessManagementController {
 
     private final AdminService adminService;
+    private final AuditLogService auditLogService;
+    private final AdminRepository adminRepository;
 
     @GetMapping("/businesses")
     @Operation(summary = "List businesses", description = "Paginated. Optional filter by verification status (PENDING, UNDER_REVIEW, APPROVED, REJECTED).")
@@ -43,8 +49,12 @@ public class AdminBusinessManagementController {
     public ResponseEntity<BusinessResponse> updateBusinessVerification(
             @PathVariable String businessPublicId,
             @AuthenticationPrincipal String adminPublicId,
-            @Valid @RequestBody BusinessVerificationUpdateRequest request) {
-        return ResponseEntity.ok(adminService.updateBusinessVerification(businessPublicId, adminPublicId, request));
+            @Valid @RequestBody BusinessVerificationUpdateRequest request,
+            HttpServletRequest httpRequest) {
+        BusinessResponse res = adminService.updateBusinessVerification(businessPublicId, adminPublicId, request);
+        String label = adminRepository.findByPublicId(adminPublicId).map(a -> a.getFullName() + " (Admin)").orElse("Admin");
+        auditLogService.record(AuditLog.ActorType.ADMIN, adminPublicId, label, "Updated verification", "Business", "status=" + request.getStatus(), httpRequest);
+        return ResponseEntity.ok(res);
     }
 
     @PatchMapping("/businesses/{businessPublicId}/subscription")
@@ -52,7 +62,12 @@ public class AdminBusinessManagementController {
     @PreAuthorize("hasRole('SUPERUSER') or hasRole('PLATFORM_ADMIN') or hasRole('SUPPORT')")
     public ResponseEntity<BusinessResponse> updateBusinessSubscription(
             @PathVariable String businessPublicId,
-            @Valid @RequestBody AdminSubscriptionUpdateRequest request) {
-        return ResponseEntity.ok(adminService.updateBusinessSubscription(businessPublicId, request));
+            @AuthenticationPrincipal String adminPublicId,
+            @Valid @RequestBody AdminSubscriptionUpdateRequest request,
+            HttpServletRequest httpRequest) {
+        BusinessResponse res = adminService.updateBusinessSubscription(businessPublicId, request);
+        String label = adminRepository.findByPublicId(adminPublicId).map(a -> a.getFullName() + " (Admin)").orElse("Admin");
+        auditLogService.record(AuditLog.ActorType.ADMIN, adminPublicId, label, "Edited subscription", "Subscription", "plan=" + (request.getPlan() != null ? request.getPlan() : ""), httpRequest);
+        return ResponseEntity.ok(res);
     }
 }

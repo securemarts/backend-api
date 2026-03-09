@@ -5,6 +5,7 @@ import com.securemarts.domain.catalog.service.FileStorageService;
 import com.securemarts.common.dto.ApiResponse;
 import com.securemarts.domain.onboarding.dto.*;
 import com.securemarts.domain.onboarding.entity.BankAccount;
+import com.securemarts.domain.onboarding.repository.BusinessTypeRepository;
 import com.securemarts.domain.onboarding.service.SubscriptionService;
 import com.securemarts.domain.onboarding.entity.ComplianceDocument;
 import com.securemarts.domain.onboarding.service.MerchantRoleService;
@@ -36,14 +37,20 @@ public class OnboardingController {
     private final FileStorageService fileStorageService;
     private final MerchantRoleService merchantRoleService;
     private final SubscriptionService subscriptionService;
+    private final BusinessTypeRepository businessTypeRepository;
 
-    @PostMapping("/businesses")
-    @Operation(summary = "Create business", description = "Step 1: Create business after user verification")
+    @PostMapping(value = "/businesses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Create business", description = "Step 1: Create business after user verification. Send JSON as 'data' part and optional 'logo' image file.")
     public ResponseEntity<BusinessResponse> createBusiness(
             @AuthenticationPrincipal String userPublicId,
-            @Valid @RequestBody CreateBusinessRequest request) {
+            @Parameter(description = "Business payload as JSON string", required = true)
+            @RequestPart("data") String data,
+            @Parameter(description = "Business logo image (PNG/JPEG/WebP)", required = false)
+            @RequestPart(name = "logo", required = false) MultipartFile logo) throws java.io.IOException {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        CreateBusinessRequest request = mapper.readValue(data, CreateBusinessRequest.class);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(onboardingService.createBusiness(userPublicId, request));
+                .body(onboardingService.createBusiness(userPublicId, request, logo));
     }
 
     @GetMapping("/businesses/{businessPublicId}")
@@ -90,6 +97,16 @@ public class OnboardingController {
         ComplianceDocument doc = onboardingService.uploadComplianceDocument(
                 userPublicId, businessPublicId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ComplianceDocumentDto.from(doc));
+    }
+
+    @GetMapping("/business-types")
+    @Operation(summary = "List supported business types", description = "Use this list to render a dropdown and send businessTypeCode when creating a business.")
+    public ResponseEntity<java.util.List<BusinessTypeResponse>> listBusinessTypes() {
+        var types = businessTypeRepository.findAll(org.springframework.data.domain.Sort.by("name").ascending())
+                .stream()
+                .map(BusinessTypeResponse::from)
+                .toList();
+        return ResponseEntity.ok(types);
     }
 
     @GetMapping("/businesses/{businessPublicId}/subscription")

@@ -5,13 +5,18 @@ import com.securemarts.common.exception.ResourceNotFoundException;
 import com.securemarts.domain.auth.entity.Role;
 import com.securemarts.domain.auth.repository.RoleRepository;
 import com.securemarts.domain.auth.repository.UserRepository;
+import com.securemarts.domain.catalog.service.FileStorageService;
+import com.securemarts.mail.EmailService;
 import com.securemarts.domain.onboarding.dto.*;
 import com.securemarts.domain.onboarding.entity.*;
 import com.securemarts.domain.onboarding.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -21,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OnboardingService {
 
     private final BusinessRepository businessRepository;
@@ -34,29 +40,58 @@ public class OnboardingService {
     private final MerchantRoleRepository merchantRoleRepository;
     private final RoleRepository roleRepository;
     private final SubscriptionLimitsService subscriptionLimitsService;
+    private final BusinessTypeRepository businessTypeRepository;
+    private final FileStorageService fileStorageService;
+    private final EmailService emailService;
 
     @Transactional
-    public BusinessResponse createBusiness(String userPublicId, CreateBusinessRequest request) {
+    public BusinessResponse createBusiness(String userPublicId, CreateBusinessRequest request, MultipartFile logo) throws IOException {
         var user = userRepository.findByPublicId(userPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userPublicId));
         if (businessOwnerRepository.findByUserId(user.getId()).stream().anyMatch(bo -> bo.isPrimaryOwner())) {
             throw new BusinessRuleException("User already owns a business");
         }
         Business business = new Business();
+        if (request.getLegalName() == null || request.getLegalName().isBlank()) {
+            throw new BusinessRuleException("legalName is required");
+        }
         business.setLegalName(request.getLegalName().trim());
         business.setTradeName(request.getTradeName() != null ? request.getTradeName().trim() : null);
         business.setCacNumber(request.getCacNumber() != null ? request.getCacNumber().trim() : null);
         business.setTaxId(request.getTaxId() != null ? request.getTaxId().trim() : null);
+        if (request.getBusinessTypeCode() != null && !request.getBusinessTypeCode().isBlank()) {
+            String code = request.getBusinessTypeCode().trim().toUpperCase();
+            BusinessType type = businessTypeRepository.findByCode(code)
+                    .orElseThrow(() -> new BusinessRuleException("Invalid businessTypeCode: " + code));
+            business.setBusinessType(type);
+        }
         business.setVerificationStatus(Business.VerificationStatus.PENDING);
         business.setSubscriptionPlan(Business.SubscriptionPlan.BASIC);
         business.setSubscriptionStatus(Business.SubscriptionStatus.NONE);
         business.setTrialEndsAt(null);
         business = businessRepository.save(business);
+        if (logo != null && !logo.isEmpty()) {
+            String contentType = logo.getContentType();
+            if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+                throw new BusinessRuleException("Logo file must be an image (PNG, JPEG, or WebP)");
+            }
+            String url = fileStorageService.storeBusinessLogo(business.getPublicId(), logo);
+            if (url != null) {
+                business.setLogoUrl(url);
+                business = businessRepository.save(business);
+            }
+        }
         BusinessOwner owner = new BusinessOwner();
         owner.setBusiness(business);
         owner.setUserId(user.getId());
         owner.setPrimaryOwner(true);
         businessOwnerRepository.save(owner);
+        try {
+            emailService.sendWelcomeOnboard(user.getEmail(), user.getFirstName());
+            log.info("Welcome onboard email sent to {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send welcome onboard email to {} – {}", user.getEmail(), e.getMessage(), e);
+        }
         return BusinessResponse.from(business);
     }
 

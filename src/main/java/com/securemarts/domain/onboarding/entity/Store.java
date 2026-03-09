@@ -11,7 +11,8 @@ import java.util.List;
 @Entity
 @Table(name = "stores", indexes = {
         @Index(name = "idx_stores_business_id", columnList = "business_id"),
-        @Index(name = "idx_stores_domain_slug", columnList = "domain_slug")
+        @Index(name = "idx_stores_domain_slug", columnList = "domain_slug"),
+        @Index(name = "idx_stores_sales_channel", columnList = "sales_channel")
 })
 @Getter
 @Setter
@@ -33,6 +34,10 @@ public class Store extends BaseEntity {
     @Column(nullable = false)
     private boolean active;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sales_channel", nullable = false, length = 20)
+    private SalesChannel salesChannel = SalesChannel.BOTH;
+
     @OneToOne(mappedBy = "store", cascade = CascadeType.ALL, orphanRemoval = true)
     private StoreProfile profile;
 
@@ -41,5 +46,19 @@ public class Store extends BaseEntity {
 
     public boolean isPaymentsEnabled() {
         return active && business.getVerificationStatus() == Business.VerificationStatus.APPROVED;
+    }
+
+    public boolean isOnlineEnabled() {
+        return salesChannel == SalesChannel.ONLINE || salesChannel == SalesChannel.BOTH;
+    }
+
+    public boolean isRetailEnabled() {
+        return salesChannel == SalesChannel.RETAIL || salesChannel == SalesChannel.BOTH;
+    }
+
+    public enum SalesChannel {
+        ONLINE,
+        RETAIL,
+        BOTH
     }
 }

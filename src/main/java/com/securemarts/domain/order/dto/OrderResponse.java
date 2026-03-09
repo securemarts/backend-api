@@ -19,6 +19,8 @@ public class OrderResponse {
     private String orderNumber;
     @Schema(description = "Order status", allowableValues = {"PENDING", "CONFIRMED", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"})
     private String status;
+    @Schema(description = "Order origin/channel", allowableValues = {"ONLINE", "PICKUP"})
+    private String origin;
     private BigDecimal totalAmount;
     private String currency;
     private Long storeId;
@@ -42,6 +44,7 @@ public class OrderResponse {
                 .publicId(order.getPublicId())
                 .orderNumber(order.getOrderNumber())
                 .status(order.getStatus().name())
+                .origin(order.getOrigin() != null ? order.getOrigin().name() : "ONLINE")
                 .totalAmount(order.getTotalAmount())
                 .currency(order.getCurrency())
                 .storeId(order.getStoreId())

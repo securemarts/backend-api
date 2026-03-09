@@ -4,14 +4,17 @@ import com.securemarts.domain.onboarding.entity.Business;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.Optional;
 
-public interface BusinessRepository extends JpaRepository<Business, Long> {
+public interface BusinessRepository extends JpaRepository<Business, Long>, JpaSpecificationExecutor<Business> {
 
     Optional<Business> findByPublicId(String publicId);
 
     boolean existsByCacNumber(String cacNumber);
 
     Page<Business> findByVerificationStatus(Business.VerificationStatus status, Pageable pageable);
+
+    long countBySubscriptionPlan(Business.SubscriptionPlan plan);
 }

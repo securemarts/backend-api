@@ -1,9 +1,11 @@
 package com.securemarts.domain.pos.controller;
 
 import com.securemarts.common.dto.ApiResponse;
+import com.securemarts.domain.onboarding.entity.Store;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
 import com.securemarts.domain.onboarding.service.MerchantPermissionService;
 import com.securemarts.domain.onboarding.service.StoreAccessService;
+import com.securemarts.domain.onboarding.service.StoreChannelService;
 import com.securemarts.domain.pos.dto.*;
 import com.securemarts.domain.pos.service.POSService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,11 +31,13 @@ public class POSController {
     private final StoreRepository storeRepository;
     private final StoreAccessService storeAccessService;
     private final MerchantPermissionService merchantPermissionService;
+    private final StoreChannelService storeChannelService;
 
-    private Long resolveStoreId(String storePublicId) {
-        return storeRepository.findByPublicId(storePublicId)
-                .orElseThrow(() -> new com.securemarts.common.exception.ResourceNotFoundException("Store", storePublicId))
-                .getId();
+    private Long resolveStoreAndEnsureRetail(String storePublicId) {
+        Store store = storeRepository.findByPublicId(storePublicId)
+                .orElseThrow(() -> new com.securemarts.common.exception.ResourceNotFoundException("Store", storePublicId));
+        storeChannelService.ensureRetailEnabled(store);
+        return store.getId();
     }
 
     @PostMapping("/registers")
@@ -45,7 +49,7 @@ public class POSController {
             @Valid @RequestBody CreatePOSRegisterRequest request) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         return ResponseEntity.ok(posService.createRegister(storeId, request));
     }
 
@@ -57,7 +61,7 @@ public class POSController {
             @PathVariable String storePublicId) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:read");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         return ResponseEntity.ok(posService.listRegisters(storeId));
     }
 
@@ -70,7 +74,7 @@ public class POSController {
             @PathVariable String registerPublicId) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:read");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         return ResponseEntity.ok(posService.getRegister(storeId, registerPublicId));
     }
 
@@ -84,7 +88,7 @@ public class POSController {
             @RequestBody(required = false) OpenSessionRequest request) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         OpenSessionRequest req = request != null ? request : new OpenSessionRequest();
         return ResponseEntity.ok(posService.openSession(storeId, registerPublicId, req));
     }
@@ -100,7 +104,7 @@ public class POSController {
             @Valid @RequestBody CloseSessionRequest request) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         return ResponseEntity.ok(posService.closeSession(storeId, registerPublicId, sessionPublicId, request));
     }
 
@@ -113,7 +117,7 @@ public class POSController {
             @PathVariable String registerPublicId) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:read");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         return ResponseEntity.ok(posService.getCurrentSession(storeId, registerPublicId));
     }
 
@@ -128,7 +132,7 @@ public class POSController {
             @Valid @RequestBody POSSyncRequest request) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         return ResponseEntity.ok(posService.sync(storeId, registerPublicId, request, idempotencyKey));
     }
 
@@ -141,7 +145,7 @@ public class POSController {
             @PathVariable String registerPublicId) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:read");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         return ResponseEntity.ok(posService.getCashDrawer(storeId, registerPublicId));
     }
 
@@ -155,7 +159,7 @@ public class POSController {
             @Valid @RequestBody CashMovementRequest request) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureRetail(storePublicId);
         posService.addCashMovement(storeId, registerPublicId, request);
         return ResponseEntity.ok(ApiResponse.success(null));
     }

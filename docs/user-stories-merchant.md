@@ -2,7 +2,7 @@
 
 **Personas:** MERCHANT_OWNER, MERCHANT_STAFF (role-based permissions: products, orders, inventory, pricing, etc.).
 
-**Relevant API prefixes:** `/auth`, `/onboarding`, `/stores/{storeId}/products`, orders, delivery, inventory, pricing, pos, payments.
+**Relevant API prefixes:** `/auth`, `/onboarding`, `/stores/{storeId}/products`, orders, delivery, inventory, pricing, pos, payments, `/stores/{storeId}/customers`, `/stores/{storeId}/invoices`.
 
 ---
 
@@ -76,17 +76,40 @@
 
 ---
 
-## 2.7 POS (offline-first)
+## 2.7 Store customers (invoicing & credit)
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ------------------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| Merchant | List/create/store customers (name, phone, email, address, credit limit) | I can invoice and sell on credit | `GET/POST /stores/{storeId}/customers`, `GET/PATCH/DELETE .../customers/{customerId}` |
+| Merchant | Search customers by name or phone | I can find a customer quickly at POS or when creating an invoice | `GET .../customers?search=` |
+
+---
+
+## 2.8 Invoicing and credit sales
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ------------------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Merchant | Create a draft invoice for a store customer with line items | I can issue an invoice for goods sold on credit | `POST /stores/{storeId}/invoices` (storeCustomerPublicId, items, dueDate, notes) |
+| Merchant | List/get invoices (filter by status, customer, date range) | I can track receivables | `GET /stores/{storeId}/invoices`, `GET .../invoices/{invoiceId}` |
+| Merchant | Update draft invoice, issue, or cancel | I can finalize or correct invoices | `PATCH .../invoices/{id}`, `POST .../invoices/{id}/issue`, `POST .../invoices/{id}/cancel` |
+| Merchant | Record a payment against an invoice (cash, transfer, etc.) | I can record how customers pay and update invoice status | `POST .../invoices/{invoiceId}/payments`, `GET .../invoices/{invoiceId}/payments` |
+
+**Note:** When syncing POS with `paymentType: CREDIT` and `storeCustomerPublicId`, the server creates an issued invoice from the transaction and links it to the customer (no cash movement to the drawer).
+
+---
+
+## 2.9 POS (offline-first)
 
 | As a... | I want to... | So that... | API(s) |
 | -------- | ---------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
 | Merchant | Create/list/get POS registers | I can run in-store sales | `POST/GET /stores/{storeId}/pos/registers`, `GET .../registers/{id}` |
 | Merchant | Open/close POS session, get current session | Staff can ring sales per register | `POST .../sessions/open`, `POST .../sessions/{id}/close`, `GET .../sessions/current` |
 | Merchant | Sync register (offline-first), view cash drawer, record cash movements | I can reconcile and manage cash | `POST .../sync`, `GET .../cash-drawer`, `POST .../cash-movements` |
+| Merchant | Sell on credit at POS (select customer, sync with paymentType=CREDIT) | I can record credit sales and an invoice is created automatically | Same sync endpoint; body may include `storeCustomerPublicId` and `paymentType: CREDIT` |
 
 ---
 
-## 2.8 Payments (merchant-initiated)
+## 2.10 Payments (merchant-initiated)
 
 | As a... | I want to... | So that... | API(s) |
 | ---------------------- | ---------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------- |

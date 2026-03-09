@@ -24,7 +24,7 @@ public class DiscoveryController {
     private final DiscoveryService discoveryService;
 
     @GetMapping("/stores")
-    @Operation(summary = "Search stores", description = "By name/brand (q), city/state, or geo (lat, lng, radiusKm). Sort by distance when lat/lng provided. Use includeLocations=true to embed location list (publicId, name, address) per store.")
+    @Operation(summary = "Search stores", description = "By name/brand (q), city/state, or geo (lat, lng, radiusKm). Sort by distance when lat/lng provided; use sort=rating for highest-rated first. Use includeLocations=true to embed location list (publicId, name, address) per store.")
     public ResponseEntity<PageResponse<StoreDiscoveryResponse>> searchStores(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String city,
@@ -33,9 +33,10 @@ public class DiscoveryController {
             @RequestParam(required = false) BigDecimal lng,
             @RequestParam(required = false) BigDecimal radiusKm,
             @RequestParam(defaultValue = "false") boolean includeLocations,
+            @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(discoveryService.searchStores(q, state, city, lat, lng, radiusKm, includeLocations, page, size));
+        return ResponseEntity.ok(discoveryService.searchStores(q, state, city, lat, lng, radiusKm, includeLocations, sort, page, size));
     }
 
     @GetMapping("/stores/{storePublicId}/locations")

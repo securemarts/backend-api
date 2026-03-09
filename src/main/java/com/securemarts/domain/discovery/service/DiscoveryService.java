@@ -13,6 +13,7 @@ import com.securemarts.domain.logistics.repository.ServiceZoneRepository;
 import com.securemarts.domain.onboarding.entity.Store;
 import com.securemarts.domain.onboarding.entity.StoreProfile;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
+import com.securemarts.domain.rating.service.StoreRatingService;
 import com.securemarts.domain.catalog.entity.Product;
 import com.securemarts.domain.catalog.entity.ProductVariant;
 import com.securemarts.domain.catalog.repository.ProductMediaRepository;
@@ -37,11 +38,13 @@ public class DiscoveryService {
     private final ProductVariantRepository productVariantRepository;
     private final ProductMediaRepository productMediaRepository;
     private final ServiceZoneRepository serviceZoneRepository;
+    private final StoreRatingService storeRatingService;
 
     @Transactional(readOnly = true)
     public PageResponse<StoreDiscoveryResponse> searchStores(String q, String state, String city,
                                                              BigDecimal lat, BigDecimal lng, BigDecimal radiusKm,
                                                              boolean includeLocations,
+                                                             String sort,
                                                              int page, int size) {
         List<Store> stores;
         if (q != null && !q.isBlank()) {
@@ -64,6 +67,9 @@ public class DiscoveryService {
             if (radiusKm != null && radiusKm.doubleValue() > 0) {
                 list = list.stream().filter(r -> r.getDistanceKm() != null && r.getDistanceKm() <= radiusKm.doubleValue()).collect(Collectors.toList());
             }
+        }
+        if (sort != null && "rating".equalsIgnoreCase(sort.trim())) {
+            list.sort(Comparator.comparing(StoreDiscoveryResponse::getAverageRating, Comparator.nullsLast(Comparator.reverseOrder())));
         }
 
         int total = list.size();
@@ -197,6 +203,10 @@ public class DiscoveryService {
                     .map(LocationSummaryResponse::from)
                     .collect(Collectors.toList()));
         }
+        double avg = storeRatingService.getAverageRating(s.getId());
+        long count = storeRatingService.getRatingCount(s.getId());
+        b.averageRating(count > 0 ? avg : null);
+        b.ratingCount(count > 0 ? (int) count : 0);
         return b.build();
     }
 

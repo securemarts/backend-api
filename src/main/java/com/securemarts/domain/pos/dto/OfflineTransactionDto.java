@@ -29,4 +29,10 @@ public class OfflineTransactionDto {
 
     @Valid
     private List<OfflineTransactionItemDto> items;
+
+    @Schema(description = "When selling on credit: store customer public ID")
+    private String storeCustomerPublicId;
+
+    @Schema(description = "Payment type: CASH (default) or CREDIT")
+    private String paymentType = "CASH";
 }

@@ -30,6 +30,9 @@ public class Business extends BaseEntity {
     @Column(name = "tax_id", length = 50)
     private String taxId;
 
+    @Column(name = "logo_url", length = 512)
+    private String logoUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false, length = 30)
     private VerificationStatus verificationStatus = VerificationStatus.PENDING;
@@ -53,6 +56,10 @@ public class Business extends BaseEntity {
 
     @Column(name = "paystack_customer_code", length = 100)
     private String paystackCustomerCode;
+
+    @ManyToOne
+    @JoinColumn(name = "business_type_id")
+    private BusinessType businessType;
 
     @OneToMany(mappedBy = "business", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Store> stores = new ArrayList<>();

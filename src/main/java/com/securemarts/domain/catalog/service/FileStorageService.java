@@ -13,6 +13,8 @@ public interface FileStorageService {
 
     String storeBusinessDocument(String businessPublicId, MultipartFile file) throws IOException;
 
+    String storeBusinessLogo(String businessPublicId, MultipartFile file) throws IOException;
+
     String storeRiderDocument(String riderPublicId, MultipartFile file) throws IOException;
 
     String storePod(String deliveryOrderPublicId, MultipartFile file) throws IOException;

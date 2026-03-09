@@ -2,7 +2,7 @@
 
 **Personas:** Customer / APP_CLIENT. Auth is optional for "my account" and for checkout if login is required.
 
-**Relevant API prefixes:** `/storefront`, `/discovery`, `/stores/{storeId}/cart`, checkout, payments, `/auth`.
+**Relevant API prefixes:** `/storefront`, `/discovery`, `/stores/{storeId}/cart`, checkout, payments, `/auth`, `/me/favorites`, `/me/stores`, `/stores/{storeId}/ratings`.
 
 ---
 
@@ -48,6 +48,32 @@
 | Customer | Verify email, reset password | My account is secure and recoverable | `POST /auth/verify-email`, `.../verify-email/resend`, `.../reset-password/request`, `.../reset-password/confirm` |
 
 **Note:** The backend supports CUSTOMER and MERCHANT_OWNER/MERCHANT_STAFF via the same `/auth`; the app should use a registration flow that sets user type or context (e.g. "Sign up as customer" vs "Sign up as merchant" linking to the dashboard).
+
+---
+
+## 3.5 Favorites / saved products (authenticated)
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ---------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------- |
+| Customer | Add a product to my favorites (saved) | I can find it later | `POST /me/favorites` (body: storePublicId, productPublicId) |
+| Customer | List my favorites (optionally by store) | I can manage saved items | `GET /me/favorites` (optional storePublicId, paginated) |
+| Customer | Check if a product is in my favorites | I can show a heart/saved state | `GET /me/favorites/check?storePublicId=&productPublicId=` |
+| Customer | Remove an item from favorites | I can keep my list tidy | `DELETE /me/favorites/{favoritePublicId}` or `DELETE /me/favorites?storePublicId=&productPublicId=` |
+
+All favorites endpoints require bearer auth. Add is idempotent (returns existing if already added).
+
+---
+
+## 3.6 Store ratings
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ---------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Customer | Submit or update my rating for a store (1–5, optional comment) | I can share my experience | `PUT /me/stores/{storePublicId}/rating` (body: score, comment); bearer auth |
+| Customer | See my rating for a store | I can edit or remove it | `GET /me/stores/{storePublicId}/rating`; bearer auth |
+| Customer | View other customers' reviews for a store | I can decide whether to order | `GET /stores/{storePublicId}/ratings` (paginated, public) |
+| Customer | See store rating when searching or viewing a store | I can compare stores | Discovery and storefront responses include `averageRating` and `ratingCount` per store |
+
+Discovery `GET /discovery/stores` and storefront `GET /storefront/{storeSlug}` both return `averageRating` and `ratingCount`. Use `sort=rating` on discovery to sort stores by rating (highest first).
 
 ---
 

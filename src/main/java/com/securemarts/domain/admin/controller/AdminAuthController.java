@@ -3,10 +3,13 @@ package com.securemarts.domain.admin.controller;
 import com.securemarts.domain.admin.dto.*;
 import com.securemarts.domain.admin.service.AdminAuthService;
 import com.securemarts.domain.admin.service.AdminService;
+import com.securemarts.domain.audit.entity.AuditLog;
+import com.securemarts.domain.audit.service.AuditLogService;
 import com.securemarts.domain.auth.dto.TokenResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,11 +26,14 @@ public class AdminAuthController {
 
     private final AdminAuthService adminAuthService;
     private final AdminService adminService;
+    private final AuditLogService auditLogService;
 
     @PostMapping("/login")
     @Operation(summary = "Admin login", description = "Authenticate as platform admin. Returns JWT with admin role and scopes (permissions). No refresh token.")
-    public ResponseEntity<TokenResponse> login(@Valid @RequestBody AdminLoginRequest request) {
-        return ResponseEntity.ok(adminAuthService.login(request));
+    public ResponseEntity<TokenResponse> login(@Valid @RequestBody AdminLoginRequest request, HttpServletRequest httpRequest) {
+        TokenResponse res = adminAuthService.login(request);
+        auditLogService.record(AuditLog.ActorType.ADMIN, res.getUserId(), res.getEmail(), "Logged in", "Auth", null, httpRequest);
+        return ResponseEntity.ok(res);
     }
 
     @GetMapping("/me")

@@ -19,4 +19,8 @@ public class StorefrontStoreDto {
 
     @Schema(description = "Default currency code (e.g. NGN)")
     private String defaultCurrency;
+    @Schema(description = "Average rating 0-5 (null when no ratings)")
+    private Double averageRating;
+    @Schema(description = "Number of ratings")
+    private Integer ratingCount;
 }

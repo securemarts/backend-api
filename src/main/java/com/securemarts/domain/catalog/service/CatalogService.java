@@ -17,7 +17,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 
@@ -27,7 +29,9 @@ public class CatalogService {
 
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final ProductMediaRepository productMediaRepository;
     private final CollectionRepository collectionRepository;
+    private final FileStorageService fileStorageService;
     private final TagRepository tagRepository;
     private final StoreRepository storeRepository;
     private final SubscriptionLimitsService subscriptionLimitsService;
@@ -205,6 +209,135 @@ public class CatalogService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", productPublicId));
         product.setDeletedAt(java.time.Instant.now());
         productRepository.save(product);
+    }
+
+    @Transactional
+    @CacheEvict(value = "products", key = "#storeId")
+    public ProductResponse attachMediaToVariant(Long storeId, String productPublicId, String variantPublicId, List<MultipartFile> mediaFiles) throws IOException {
+        if (mediaFiles == null || mediaFiles.stream().allMatch(f -> f == null || f.isEmpty())) {
+            return getProduct(storeId, productPublicId);
+        }
+        Product product = productRepository.findByPublicIdAndStoreId(productPublicId, storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", productPublicId));
+        if (product.isDeleted()) throw new ResourceNotFoundException("Product", productPublicId);
+        ProductVariant variant = product.getVariants().stream()
+                .filter(v -> v.getPublicId().equals(variantPublicId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Product variant", variantPublicId));
+
+        String storePublicId = storeRepository.findById(storeId).orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId))).getPublicId();
+        int startPosition = product.getMedia().stream().mapToInt(ProductMedia::getPosition).max().orElse(-1) + 1;
+        int position = startPosition;
+        for (MultipartFile file : mediaFiles) {
+            if (file == null || file.isEmpty()) continue;
+            String url = fileStorageService.store(storePublicId, file);
+            if (url == null) continue;
+            ProductMedia m = new ProductMedia();
+            m.setProduct(product);
+            m.setUrl(url);
+            m.setAlt("");
+            m.setPosition(position++);
+            m.setMediaType("image");
+            product.getMedia().add(m);
+            variant.getMedia().add(m);
+        }
+        product = productRepository.save(product);
+        productVariantRepository.save(variant);
+        return ProductResponse.from(product);
+    }
+
+    @Transactional
+    @CacheEvict(value = "products", key = "#storeId")
+    public ProductResponse detachMediaFromVariant(Long storeId, String productPublicId, String variantPublicId, String mediaPublicId) {
+        Product product = productRepository.findByPublicIdAndStoreId(productPublicId, storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", productPublicId));
+        if (product.isDeleted()) throw new ResourceNotFoundException("Product", productPublicId);
+        ProductVariant variant = product.getVariants().stream()
+                .filter(v -> v.getPublicId().equals(variantPublicId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Product variant", variantPublicId));
+        boolean removed = variant.getMedia().removeIf(m -> m.getPublicId().equals(mediaPublicId));
+        if (!removed) {
+            throw new ResourceNotFoundException("Product media", mediaPublicId);
+        }
+        productVariantRepository.save(variant);
+        return ProductResponse.from(product);
+    }
+    @Transactional
+    @CacheEvict(value = "products", key = "#storeId")
+    public ProductResponse addVariant(Long storeId, String productPublicId, ProductRequest.ProductVariantRequest request) throws IOException {
+        return addVariantWithMedia(storeId, productPublicId, request, null);
+    }
+
+    @Transactional
+    @CacheEvict(value = "products", key = "#storeId")
+    public ProductResponse addVariantWithMedia(Long storeId, String productPublicId, ProductRequest.ProductVariantRequest request, List<MultipartFile> mediaFiles) throws IOException {
+        Product product = productRepository.findByPublicIdAndStoreId(productPublicId, storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", productPublicId));
+        if (product.isDeleted()) throw new ResourceNotFoundException("Product", productPublicId);
+        int nextPosition = product.getVariants().stream().mapToInt(ProductVariant::getPosition).max().orElse(-1) + 1;
+        ProductVariant v = toVariant(product, request, nextPosition);
+        product.getVariants().add(v);
+        product = productRepository.save(product);
+
+        if (mediaFiles != null && !mediaFiles.isEmpty()) {
+            String storePublicId = storeRepository.findById(storeId).orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId))).getPublicId();
+            int startPosition = product.getMedia().stream().mapToInt(ProductMedia::getPosition).max().orElse(-1) + 1;
+            int position = startPosition;
+            for (MultipartFile file : mediaFiles) {
+                if (file == null || file.isEmpty()) continue;
+                String url = fileStorageService.store(storePublicId, file);
+                if (url == null) continue;
+                ProductMedia m = new ProductMedia();
+                m.setProduct(product);
+                m.setUrl(url);
+                m.setAlt("");
+                m.setPosition(position++);
+                m.setMediaType("image");
+                product.getMedia().add(m);
+                v.getMedia().add(m);
+            }
+            product = productRepository.save(product);
+            productVariantRepository.save(v);
+        }
+        return ProductResponse.from(product);
+    }
+
+    @Transactional
+    @CacheEvict(value = "products", key = "#storeId")
+    public ProductResponse updateVariant(Long storeId, String productPublicId, String variantPublicId, ProductRequest.ProductVariantRequest request) {
+        Product product = productRepository.findByPublicIdAndStoreId(productPublicId, storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", productPublicId));
+        if (product.isDeleted()) throw new ResourceNotFoundException("Product", productPublicId);
+        ProductVariant v = product.getVariants().stream()
+                .filter(variant -> variant.getPublicId().equals(variantPublicId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Product variant", variantPublicId));
+        v.setSku(request.getSku());
+        v.setTitle(request.getTitle());
+        v.setPriceAmount(request.getPriceAmount() != null ? request.getPriceAmount() : BigDecimal.ZERO);
+        v.setCompareAtAmount(request.getCompareAtAmount());
+        v.setCurrency(request.getCurrency() != null ? request.getCurrency() : "NGN");
+        v.setAttributesJson(request.getAttributesJson());
+        if (request.getPosition() >= 0) v.setPosition(request.getPosition());
+        productVariantRepository.save(v);
+        product = productRepository.save(product);
+        return ProductResponse.from(product);
+    }
+
+    @Transactional
+    @CacheEvict(value = "products", key = "#storeId")
+    public ProductResponse deleteVariant(Long storeId, String productPublicId, String variantPublicId) {
+        Product product = productRepository.findByPublicIdAndStoreId(productPublicId, storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", productPublicId));
+        if (product.isDeleted()) throw new ResourceNotFoundException("Product", productPublicId);
+        if (product.getVariants().size() <= 1) {
+            throw new BusinessRuleException("A product must have at least one variant. Add another variant before removing this one.");
+        }
+        boolean removed = product.getVariants().removeIf(v -> v.getPublicId().equals(variantPublicId));
+        if (!removed) throw new ResourceNotFoundException("Product variant", variantPublicId);
+        product = productRepository.save(product);
+        return ProductResponse.from(product);
     }
 
     private void syncTags(Product product, Long businessId, Set<String> tagNames) {

@@ -82,15 +82,29 @@ User stories below are derived from the backend controllers and mapped to each a
 | Merchant | Create delivery order for an order | Order can be fulfilled by rider | `POST /stores/{storeId}/delivery/orders` |
 | Merchant | List/get delivery orders, assign rider, reschedule | I can manage logistics | `GET /stores/{storeId}/delivery/orders`, `GET .../orders/{id}`, `PATCH .../orders/{id}/assign`, `PATCH .../reschedule` |
 
-### 2.7 POS (offline-first)
+### 2.7 Store customers (invoicing & credit)
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ------------------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| Merchant | List/create/store customers (name, phone, email, credit limit) | I can invoice and sell on credit | `GET/POST /stores/{storeId}/customers`, `GET/PATCH/DELETE .../customers/{customerId}` |
+
+### 2.8 Invoicing and credit sales
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ------------------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Merchant | Create draft invoice, list/get invoices, issue or cancel | I can track receivables | `POST/GET /stores/{storeId}/invoices`, `GET .../invoices/{id}`, `PATCH .../invoices/{id}`, `POST .../issue`, `POST .../cancel` |
+| Merchant | Record payment against an invoice | I can record how customers pay | `POST/GET .../invoices/{invoiceId}/payments` |
+
+### 2.9 POS (offline-first)
 
 | As a... | I want to... | So that... | API(s) |
 | -------- | ---------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
 | Merchant | Create/list/get POS registers | I can run in-store sales | `POST/GET /stores/{storeId}/pos/registers`, `GET .../registers/{id}` |
 | Merchant | Open/close POS session, get current session | Staff can ring sales per register | `POST .../sessions/open`, `POST .../sessions/{id}/close`, `GET .../sessions/current` |
 | Merchant | Sync register (offline-first), view cash drawer, record cash movements | I can reconcile and manage cash | `POST .../sync`, `GET .../cash-drawer`, `POST .../cash-movements` |
+| Merchant | Sell on credit at POS (sync with paymentType=CREDIT, storeCustomerPublicId) | An invoice is created automatically for the sale | Same sync endpoint with optional `storeCustomerPublicId` and `paymentType: CREDIT` |
 
-### 2.8 Payments (merchant-initiated)
+### 2.10 Payments (merchant-initiated)
 
 | As a... | I want to... | So that... | API(s) |
 | ---------------------- | ---------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
@@ -102,7 +116,7 @@ User stories below are derived from the backend controllers and mapped to each a
 
 ## 3. Securemarts Users App (Customers / APP_CLIENT)
 
-**APIs:** Storefront (public), Discovery, Cart, Checkout, Payment verify. Auth used for optional "my account" and for checkout if you require login.
+**APIs:** Storefront (public), Discovery, Cart, Checkout, Payment verify, `/me/favorites`, `/me/stores` (ratings), `/stores/{storeId}/ratings`. Auth used for optional "my account," favorites, store ratings, and for checkout if you require login. Discovery and storefront return `averageRating` and `ratingCount` per store.
 
 ### 3.1 Discovery & storefront (browse without login)
 
@@ -140,6 +154,26 @@ User stories below are derived from the backend controllers and mapped to each a
 | Customer | Verify email, reset password | My account is secure and recoverable | `POST /auth/verify-email`, `.../verify-email/resend`, `.../reset-password/request`, `.../reset-password/confirm` |
 
 *Note: Backend supports CUSTOMER and MERCHANT_OWNER/MERCHANT_STAFF via same `/auth`; app should use registration flow that sets user type or context (e.g. "Sign up as customer" vs "Sign up as merchant" linking to dashboard).*
+
+### 3.5 Favorites / saved products (authenticated)
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ---------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------- |
+| Customer | Add a product to my favorites (saved) | I can find it later | `POST /me/favorites` (body: storePublicId, productPublicId) |
+| Customer | List my favorites (optionally by store) | I can manage saved items | `GET /me/favorites` (optional storePublicId, paginated) |
+| Customer | Check if a product is in my favorites | I can show a heart/saved state | `GET /me/favorites/check?storePublicId=&productPublicId=` |
+| Customer | Remove an item from favorites | I can keep my list tidy | `DELETE /me/favorites/{favoritePublicId}` or `DELETE /me/favorites?storePublicId=&productPublicId=` |
+
+All require bearer auth. Add is idempotent.
+
+### 3.6 Store ratings
+
+| As a... | I want to... | So that... | API(s) |
+| -------- | ---------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Customer | Submit or update my rating for a store (1–5, optional comment) | I can share my experience | `PUT /me/stores/{storePublicId}/rating` (body: score, comment); bearer auth |
+| Customer | See my rating for a store | I can edit or remove it | `GET /me/stores/{storePublicId}/rating`; bearer auth |
+| Customer | View other customers' reviews for a store | I can decide whether to order | `GET /stores/{storePublicId}/ratings` (paginated, public) |
+| Customer | See store rating when searching or viewing a store | I can compare stores | Discovery and storefront responses include `averageRating` and `ratingCount`; use `sort=rating` on discovery |
 
 ---
 

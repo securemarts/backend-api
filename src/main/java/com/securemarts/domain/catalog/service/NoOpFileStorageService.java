@@ -31,6 +31,12 @@ public class NoOpFileStorageService implements FileStorageService {
     }
 
     @Override
+    public String storeBusinessLogo(String businessPublicId, MultipartFile file) throws IOException {
+        log.warn("Storage not configured; business logo upload ignored");
+        return null;
+    }
+
+    @Override
     public String storeRiderDocument(String riderPublicId, MultipartFile file) throws IOException {
         log.warn("Storage not configured; upload ignored");
         return null;

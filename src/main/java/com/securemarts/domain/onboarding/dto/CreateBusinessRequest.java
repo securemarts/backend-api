@@ -25,4 +25,8 @@ public class CreateBusinessRequest {
     @Size(max = 50)
     @Schema(description = "Tax identification number", example = "12345678-0001")
     private String taxId;
+
+    @Size(max = 50)
+    @Schema(description = "Business type code from /onboarding/business-types", example = "RESTAURANT")
+    private String businessTypeCode;
 }

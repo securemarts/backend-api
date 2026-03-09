@@ -3,7 +3,9 @@ package com.securemarts.domain.cart.controller;
 import com.securemarts.domain.cart.dto.CartItemRequest;
 import com.securemarts.domain.cart.dto.CartResponse;
 import com.securemarts.domain.cart.service.CartService;
+import com.securemarts.domain.onboarding.entity.Store;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
+import com.securemarts.domain.onboarding.service.StoreChannelService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -19,6 +21,7 @@ public class CartController {
 
     private final CartService cartService;
     private final StoreRepository storeRepository;
+    private final StoreChannelService storeChannelService;
 
     @GetMapping
     @Operation(summary = "Get cart by token or ID", description = "Pass X-Cart-Token header or cartPublicId query")
@@ -26,7 +29,7 @@ public class CartController {
             @PathVariable String storePublicId,
             @RequestParam(required = false) String cartId,
             @RequestHeader(value = "X-Cart-Token", required = false) String cartToken) {
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureOnline(storePublicId);
         Long customerId = null;
         if (cartId != null && !cartId.isBlank()) {
             return ResponseEntity.ok(cartService.getCartResponse(storeId, cartId));
@@ -40,7 +43,7 @@ public class CartController {
             @PathVariable String storePublicId,
             @RequestHeader(value = "X-Cart-Token", required = false) String cartToken,
             @Valid @RequestBody CartItemRequest request) {
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureOnline(storePublicId);
         CartResponse cart = cartService.addItem(storeId, null, cartToken, request);
         return ResponseEntity.ok(cart);
     }
@@ -52,7 +55,7 @@ public class CartController {
             @PathVariable String cartPublicId,
             @PathVariable String cartItemPublicId,
             @RequestBody java.util.Map<String, Integer> body) {
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureOnline(storePublicId);
         int qty = body != null && body.containsKey("quantity") ? body.get("quantity") : 0;
         return ResponseEntity.ok(cartService.updateItemQuantity(storeId, cartPublicId, cartItemPublicId, qty));
     }
@@ -63,13 +66,14 @@ public class CartController {
             @PathVariable String storePublicId,
             @PathVariable String cartPublicId,
             @PathVariable String cartItemPublicId) {
-        Long storeId = resolveStoreId(storePublicId);
+        Long storeId = resolveStoreAndEnsureOnline(storePublicId);
         return ResponseEntity.ok(cartService.removeItem(storeId, cartPublicId, cartItemPublicId));
     }
 
-    private Long resolveStoreId(String storePublicId) {
-        return storeRepository.findByPublicId(storePublicId)
-                .map(com.securemarts.domain.onboarding.entity.Store::getId)
+    private Long resolveStoreAndEnsureOnline(String storePublicId) {
+        Store store = storeRepository.findByPublicId(storePublicId)
                 .orElseThrow(() -> new com.securemarts.common.exception.ResourceNotFoundException("Store", storePublicId));
+        storeChannelService.ensureOnlineEnabled(store);
+        return store.getId();
     }
 }

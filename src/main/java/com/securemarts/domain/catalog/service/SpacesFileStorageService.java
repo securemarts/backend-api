@@ -43,6 +43,14 @@ public class SpacesFileStorageService implements FileStorageService {
     }
 
     @Override
+    public String storeBusinessLogo(String businessPublicId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) return null;
+        String key = buildKey("business-logos", businessPublicId, file.getOriginalFilename());
+        upload(key, file);
+        return spacesProperties.getPublicUrlForKey(key);
+    }
+
+    @Override
     public String storeRiderDocument(String riderPublicId, MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) return null;
         String key = buildKey("riders", riderPublicId, file.getOriginalFilename());

@@ -63,6 +63,8 @@ public class ProductResponse {
         private String currency;
         private String attributesJson;
         private int position;
+        @Schema(description = "Variant-specific media (e.g. color images). Falls back to product media if empty.")
+        private List<MediaResponse> media;
 
         public static VariantResponse from(com.securemarts.domain.catalog.entity.ProductVariant v) {
             return VariantResponse.builder()
@@ -74,6 +76,7 @@ public class ProductResponse {
                     .currency(v.getCurrency())
                     .attributesJson(v.getAttributesJson())
                     .position(v.getPosition())
+                    .media(v.getMedia() != null ? v.getMedia().stream().map(MediaResponse::from).collect(Collectors.toList()) : List.of())
                     .build();
         }
     }

@@ -14,7 +14,10 @@ import java.util.List;
 @Table(name = "offline_transactions", indexes = {
         @Index(name = "idx_offline_tx_register_client", columnList = "register_id, client_id", unique = true),
         @Index(name = "idx_offline_transactions_store", columnList = "store_id"),
-        @Index(name = "idx_offline_transactions_session", columnList = "session_id")
+        @Index(name = "idx_offline_transactions_session", columnList = "session_id"),
+        @Index(name = "idx_offline_transactions_channel", columnList = "channel"),
+        @Index(name = "idx_offline_transactions_store_customer", columnList = "store_customer_id"),
+        @Index(name = "idx_offline_transactions_invoice", columnList = "invoice_id")
 })
 @Getter
 @Setter
@@ -44,9 +47,23 @@ public class OfflineTransaction extends BaseEntity {
     @Column(name = "synced_at")
     private Instant syncedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TransactionChannel channel = TransactionChannel.IN_STORE;
+
+    @Column(name = "store_customer_id")
+    private Long storeCustomerId;
+
+    @Column(name = "invoice_id")
+    private Long invoiceId;
+
     @Version
     private int version;
 
     @OneToMany(mappedBy = "offlineTransaction", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OfflineTransactionItem> items = new ArrayList<>();
+
+    public enum TransactionChannel {
+        IN_STORE
+    }
 }

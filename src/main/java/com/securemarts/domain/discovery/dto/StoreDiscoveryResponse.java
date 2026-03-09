@@ -28,4 +28,8 @@ public class StoreDiscoveryResponse {
     private String contactPhone;
     @Schema(description = "Locations (when includeLocations=true)")
     private List<LocationSummaryResponse> locations;
+    @Schema(description = "Average rating 0-5 (null when no ratings)")
+    private Double averageRating;
+    @Schema(description = "Number of ratings")
+    private Integer ratingCount;
 }
