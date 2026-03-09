@@ -77,6 +77,8 @@ app:
     rate-limit-login-per-minute: 10
     password-reset-base-url: ${APP_PASSWORD_RESET_BASE_URL:}
   default-currency: NGN
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}
   payment:
     paystack:
       secret-key: ${APP_PAYMENT_PAYSTACK_SECRET_KEY:sk_test_1e3906ff831ba4469a090d193000c9fcc5dc02d3}
@@ -90,6 +92,15 @@ app:
       pro-annual-amount-kobo: ${APP_SUBSCRIPTION_PRO_ANNUAL_KOBO:20000000}
       enterprise-monthly-amount-kobo: ${APP_SUBSCRIPTION_ENTERPRISE_MONTHLY_KOBO:5000000}
       enterprise-annual-amount-kobo: ${APP_SUBSCRIPTION_ENTERPRISE_ANNUAL_KOBO:50000000}
+  logistics:
+    aramex:
+      enabled: ${APP_LOGISTICS_ARAMEX_ENABLED:false}
+      base-url: ${APP_LOGISTICS_ARAMEX_BASE_URL:https://ws.aramex.net/ShippingAPI.V2/Service_1_0.svc}
+      username: ${APP_LOGISTICS_ARAMEX_USERNAME:}
+      password: ${APP_LOGISTICS_ARAMEX_PASSWORD:}
+      account-number: ${APP_LOGISTICS_ARAMEX_ACCOUNT_NUMBER:}
+      account-entity: ${APP_LOGISTICS_ARAMEX_ACCOUNT_ENTITY:}
+      account-country-code: ${APP_LOGISTICS_ARAMEX_ACCOUNT_COUNTRY_CODE:}
 
 springdoc:
   api-docs:
