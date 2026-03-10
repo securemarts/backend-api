@@ -29,6 +29,9 @@ public class DeliveryOrderResponse {
     private Instant deliveredAt;
     private String failedReason;
     private String batchId;
+    private String carrierCode;
+    private String externalShipmentId;
+    private String trackingUrl;
     private int version;
     private Instant createdAt;
 
@@ -48,6 +51,9 @@ public class DeliveryOrderResponse {
                 .deliveredAt(d.getDeliveredAt())
                 .failedReason(d.getFailedReason())
                 .batchId(d.getBatchId())
+                .carrierCode(d.getCarrierCode())
+                .externalShipmentId(d.getExternalShipmentId())
+                .trackingUrl(d.getTrackingUrl())
                 .version(d.getVersion())
                 .createdAt(d.getCreatedAt())
                 .build();

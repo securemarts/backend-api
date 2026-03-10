@@ -36,6 +36,16 @@ public class CheckoutController {
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(order));
     }
 
+    @PostMapping("/orders/{orderPublicId}/cancel-checkout")
+    @Operation(summary = "Cancel checkout", description = "Release reservation and cancel order. Only for PENDING orders before payment.")
+    public ResponseEntity<Void> cancelCheckout(
+            @PathVariable String storePublicId,
+            @PathVariable String orderPublicId) {
+        Long storeId = resolveStoreId(storePublicId);
+        checkoutService.cancelCheckout(storeId, orderPublicId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/create-order-and-pay")
     @Operation(summary = "Create order and initiate payment", description = "Creates order from cart and initiates payment in one call. Payment is linked to the order (order_id saved). Return payment.authorizationUrl to redirect customer to gateway.")
     public ResponseEntity<CreateOrderAndPayResponse> createOrderAndPay(

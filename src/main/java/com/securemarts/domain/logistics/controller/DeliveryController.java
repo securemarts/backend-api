@@ -3,6 +3,7 @@ package com.securemarts.domain.logistics.controller;
 import com.securemarts.common.dto.PageResponse;
 import com.securemarts.domain.logistics.dto.*;
 import com.securemarts.domain.logistics.service.LogisticsService;
+import com.securemarts.domain.order.repository.OrderRepository;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
 import com.securemarts.domain.onboarding.service.MerchantPermissionService;
 import com.securemarts.domain.onboarding.service.StoreAccessService;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 public class DeliveryController {
 
     private final LogisticsService logisticsService;
+    private final OrderRepository orderRepository;
     private final StoreRepository storeRepository;
     private final StoreAccessService storeAccessService;
     private final MerchantPermissionService merchantPermissionService;
@@ -48,7 +50,10 @@ public class DeliveryController {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
         Long storeId = resolveStoreId(storePublicId);
-        return ResponseEntity.ok(logisticsService.createDeliveryOrder(storeId, request));
+        var delivery = logisticsService.createDeliveryOrder(storeId, request);
+        var resp = DeliveryOrderResponse.from(delivery);
+        orderRepository.findById(delivery.getOrderId()).ifPresent(o -> resp.setOrderId(o.getPublicId()));
+        return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/orders")
@@ -76,6 +81,20 @@ public class DeliveryController {
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:read");
         Long storeId = resolveStoreId(storePublicId);
         return ResponseEntity.ok(logisticsService.getDeliveryOrderByStore(storeId, deliveryOrderPublicId));
+    }
+
+    @PostMapping("/assign-batch")
+    @Operation(summary = "Assign batch of deliveries to one rider", description = "Assign multiple PENDING delivery orders to a single rider with the same batch_id (route order in rider app by distance)")
+    @PreAuthorize("hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
+    public ResponseEntity<Void> assignBatch(
+            @AuthenticationPrincipal String userPublicId,
+            @PathVariable String storePublicId,
+            @Valid @RequestBody AssignBatchRequest request) {
+        storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
+        merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "orders:write");
+        Long storeId = resolveStoreId(storePublicId);
+        logisticsService.assignBatch(storeId, request.getDeliveryOrderPublicIds(), request.getRiderPublicId());
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/orders/{deliveryOrderPublicId}/assign")

@@ -15,6 +15,12 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Lo
 
     Optional<DeliveryOrder> findByOrderId(Long orderId);
 
+    List<DeliveryOrder> findAllByOrderId(Long orderId);
+
+    Optional<DeliveryOrder> findByShipmentId(Long shipmentId);
+
+    Optional<DeliveryOrder> findByCarrierCodeAndExternalShipmentId(String carrierCode, String externalShipmentId);
+
     Page<DeliveryOrder> findByStoreId(Long storeId, Pageable pageable);
 
     Page<DeliveryOrder> findByStoreIdAndStatus(Long storeId, DeliveryOrder.DeliveryStatus status, Pageable pageable);
