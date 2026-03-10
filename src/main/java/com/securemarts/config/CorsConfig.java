@@ -29,7 +29,12 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         List<String> origins = parseOrigins(allowedOriginsConfig);
-        config.setAllowedOrigins(origins);
+        // Patterns allow any localhost port (e.g. :5174). Always include wildcards so dev works without config.
+        List<String> patterns = new java.util.ArrayList<>(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        for (String o : origins) {
+            if (!patterns.contains(o)) patterns.add(o);
+        }
+        config.setAllowedOriginPatterns(patterns);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "Cache-Control"));
         config.setExposedHeaders(List.of("Authorization", "Content-Type"));
@@ -50,23 +55,24 @@ public class CorsConfig {
             @Override
             protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
                 String origin = request.getHeader("Origin");
-                List<String> allowed = parseOrigins(allowedOriginsConfig);
-                if (origin != null && !origin.isBlank() && (allowed.isEmpty() || allowed.stream().anyMatch(o -> origin.equals(o) || originMatches(o, origin)))) {
+                if (origin != null && !origin.isBlank() && isOriginAllowed(origin)) {
                     response.setHeader("Access-Control-Allow-Origin", origin);
                     response.setHeader("Access-Control-Allow-Credentials", "true");
                     response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
                     response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, X-Requested-With, Origin, Cache-Control");
                     response.setHeader("Access-Control-Max-Age", "3600");
+                    if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        return;
+                    }
                 }
                 filterChain.doFilter(request, response);
             }
 
-            private boolean originMatches(String allowed, String origin) {
-                if (allowed.contains("*")) {
-                    String pattern = allowed.replace(".", "\\.").replace("*", ".*");
-                    return origin.matches(pattern);
-                }
-                return allowed.equals(origin);
+            private boolean isOriginAllowed(String origin) {
+                if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) return true;
+                List<String> allowed = parseOrigins(allowedOriginsConfig);
+                return allowed.isEmpty() || allowed.stream().anyMatch(o -> origin.equals(o) || (o.contains("*") && origin.matches(o.replace(".", "\\.").replace("*", ".*")));
             }
         };
     }
