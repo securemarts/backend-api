@@ -22,11 +22,7 @@ public class CreateBusinessRequest {
     @Schema(description = "CAC registration number", example = "RC123456")
     private String cacNumber;
 
-    @Size(max = 50)
-    @Schema(description = "Tax identification number", example = "12345678-0001")
-    private String taxId;
-
-    @Size(max = 50)
-    @Schema(description = "Business type code from /onboarding/business-types", example = "RESTAURANT")
-    private String businessTypeCode;
+    @Size(max = 36)
+    @Schema(description = "Business type publicId from /onboarding/business-types", example = "e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String businessTypePublicId;
 }
