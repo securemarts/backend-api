@@ -24,5 +24,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     long countByStoreIdIn(Collection<Long> storeIds);
 
+    Page<Order> findByStoreIdIn(Collection<Long> storeIds, Pageable pageable);
+
     List<Order> findByStatusAndReservationExpiresAtBefore(Order.OrderStatus status, Instant expiryThreshold);
 }
