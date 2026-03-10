@@ -58,13 +58,13 @@ public class OnboardingService {
         business.setLegalName(request.getLegalName().trim());
         business.setTradeName(request.getTradeName() != null ? request.getTradeName().trim() : null);
         business.setCacNumber(request.getCacNumber() != null ? request.getCacNumber().trim() : null);
-        business.setTaxId(request.getTaxId() != null ? request.getTaxId().trim() : null);
-        if (request.getBusinessTypeCode() != null && !request.getBusinessTypeCode().isBlank()) {
-            String code = request.getBusinessTypeCode().trim().toUpperCase();
-            BusinessType type = businessTypeRepository.findByCode(code)
-                    .orElseThrow(() -> new BusinessRuleException("Invalid businessTypeCode: " + code));
-            business.setBusinessType(type);
+        if (request.getBusinessTypePublicId() == null || request.getBusinessTypePublicId().isBlank()) {
+            throw new BusinessRuleException("businessTypePublicId is required");
         }
+        String typePublicId = request.getBusinessTypePublicId().trim();
+        BusinessType type = businessTypeRepository.findByPublicId(typePublicId)
+                .orElseThrow(() -> new BusinessRuleException("Invalid businessTypePublicId: " + typePublicId));
+        business.setBusinessType(type);
         business.setVerificationStatus(Business.VerificationStatus.PENDING);
         business.setSubscriptionPlan(Business.SubscriptionPlan.BASIC);
         business.setSubscriptionStatus(Business.SubscriptionStatus.NONE);
