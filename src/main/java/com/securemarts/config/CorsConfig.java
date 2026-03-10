@@ -70,9 +70,11 @@ public class CorsConfig {
             }
 
             private boolean isOriginAllowed(String origin) {
-                if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) return true;
+                if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+                    return true;
+                }
                 List<String> allowed = parseOrigins(allowedOriginsConfig);
-                return allowed.isEmpty() || allowed.stream().anyMatch(o -> origin.equals(o) || (o.contains("*") && origin.matches(o.replace(".", "\\.").replace("*", ".*")));
+                return allowed.isEmpty() || allowed.contains(origin);
             }
         };
     }
