@@ -1,6 +1,8 @@
 package com.securemarts.domain.admin.controller;
 
 import com.securemarts.common.dto.PageResponse;
+import com.securemarts.domain.admin.dto.AdminBusinessDetailResponse;
+import com.securemarts.domain.admin.dto.AdminBusinessUserSummary;
 import com.securemarts.domain.admin.dto.AdminSubscriptionUpdateRequest;
 import com.securemarts.domain.admin.dto.BusinessVerificationUpdateRequest;
 import com.securemarts.domain.admin.repository.AdminRepository;
@@ -8,6 +10,7 @@ import com.securemarts.domain.admin.service.AdminService;
 import com.securemarts.domain.audit.entity.AuditLog;
 import com.securemarts.domain.audit.service.AuditLogService;
 import com.securemarts.domain.onboarding.dto.BusinessResponse;
+import com.securemarts.domain.order.dto.OrderResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -22,6 +25,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/admin")
@@ -41,6 +46,31 @@ public class AdminBusinessManagementController {
             @Parameter(description = "Filter by verification status", schema = @Schema(allowableValues = {"PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"})) @RequestParam(required = false) String status,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(adminService.listBusinesses(status, pageable));
+    }
+
+    @GetMapping("/businesses/{businessPublicId}")
+    @Operation(summary = "Get business detail", description = "Admin business detail by UUID: core info, subscription, store/owner/order counts, and stores list.")
+    @PreAuthorize("hasRole('SUPERUSER') or hasAuthority('SCOPE_business:list')")
+    public ResponseEntity<AdminBusinessDetailResponse> getBusiness(
+            @Parameter(description = "Business public ID (UUID)") @PathVariable String businessPublicId) {
+        return ResponseEntity.ok(adminService.getBusinessByPublicId(businessPublicId));
+    }
+
+    @GetMapping("/businesses/{businessPublicId}/users")
+    @Operation(summary = "List business users", description = "Owners and members associated with this business.")
+    @PreAuthorize("hasRole('SUPERUSER') or hasAuthority('SCOPE_business:list')")
+    public ResponseEntity<List<AdminBusinessUserSummary>> listBusinessUsers(
+            @Parameter(description = "Business public ID (UUID)") @PathVariable String businessPublicId) {
+        return ResponseEntity.ok(adminService.listBusinessUsers(businessPublicId));
+    }
+
+    @GetMapping("/businesses/{businessPublicId}/orders")
+    @Operation(summary = "List business orders", description = "Paginated orders across all stores of this business.")
+    @PreAuthorize("hasRole('SUPERUSER') or hasAuthority('SCOPE_business:list')")
+    public ResponseEntity<PageResponse<OrderResponse>> listBusinessOrders(
+            @Parameter(description = "Business public ID (UUID)") @PathVariable String businessPublicId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(adminService.getOrdersForBusiness(businessPublicId, pageable));
     }
 
     @PatchMapping("/businesses/{businessPublicId}/verification")
