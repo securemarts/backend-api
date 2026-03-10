@@ -197,16 +197,24 @@ Use the returned `accessToken` with **Authorize** in Swagger, then call **GET /a
 
 ### Create Business
 
+First, list supported business types and pick one `publicId`:
+
+```bash
+curl -s -X GET http://localhost:8080/api/v1/onboarding/business-types \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Then create a business using that `businessTypePublicId`:
+
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/onboarding/businesses \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "legalName": "Acme Ventures Ltd",
-    "tradeName": "Acme Store",
-    "cacNumber": "RC123456",
-    "taxId": "12345678-0001"
-  }'
+  -H "Content-Type: multipart/form-data" \
+  -F "legalName=Acme Ventures Ltd" \
+  -F "tradeName=Acme Store" \
+  -F "cacNumber=RC123456" \
+  -F "businessTypePublicId=e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab" \
+  -F "logo=@/path/to/logo.png"
 ```
 
 ### Create Store
