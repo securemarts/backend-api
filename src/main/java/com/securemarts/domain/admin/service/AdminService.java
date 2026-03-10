@@ -5,6 +5,8 @@ import com.securemarts.common.exception.BusinessRuleException;
 import com.securemarts.common.exception.ResourceNotFoundException;
 import com.securemarts.domain.admin.dto.*;
 import com.securemarts.domain.admin.entity.Admin;
+import com.securemarts.domain.auth.entity.User;
+import com.securemarts.domain.auth.repository.UserRepository;
 import com.securemarts.domain.admin.entity.AdminInvite;
 import com.securemarts.domain.admin.entity.PlatformRole;
 import com.securemarts.domain.admin.repository.AdminInviteRepository;
@@ -12,9 +14,17 @@ import com.securemarts.domain.admin.repository.AdminRepository;
 import com.securemarts.domain.admin.repository.PlatformRoleRepository;
 import com.securemarts.domain.onboarding.dto.BusinessResponse;
 import com.securemarts.domain.onboarding.entity.Business;
+import com.securemarts.domain.onboarding.entity.BusinessMember;
+import com.securemarts.domain.onboarding.entity.BusinessOwner;
 import com.securemarts.domain.onboarding.entity.SubscriptionHistory;
+import com.securemarts.domain.onboarding.repository.BusinessOwnerRepository;
+import com.securemarts.domain.onboarding.repository.BusinessMemberRepository;
 import com.securemarts.domain.onboarding.repository.BusinessRepository;
+import com.securemarts.domain.onboarding.repository.StoreRepository;
 import com.securemarts.domain.onboarding.repository.SubscriptionHistoryRepository;
+import com.securemarts.domain.order.dto.OrderResponse;
+import com.securemarts.domain.order.entity.Order;
+import com.securemarts.domain.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,7 +50,105 @@ public class AdminService {
     private final PlatformRoleRepository platformRoleRepository;
     private final BusinessRepository businessRepository;
     private final SubscriptionHistoryRepository subscriptionHistoryRepository;
+    private final StoreRepository storeRepository;
+    private final BusinessOwnerRepository businessOwnerRepository;
+    private final BusinessMemberRepository businessMemberRepository;
+    private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Transactional(readOnly = true)
+    public AdminBusinessDetailResponse getBusinessByPublicId(String businessPublicId) {
+        Business business = businessRepository.findByPublicId(businessPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business", businessPublicId));
+        List<com.securemarts.domain.onboarding.entity.Store> stores = storeRepository.findByBusinessId(business.getId());
+        int ownerCount = businessOwnerRepository.findByBusinessId(business.getId()).size();
+        long memberCount = businessMemberRepository.countByBusinessId(business.getId());
+        List<Long> storeIds = stores.stream().map(com.securemarts.domain.onboarding.entity.Store::getId).toList();
+        long orderCount = storeIds.isEmpty() ? 0L : orderRepository.countByStoreIdIn(storeIds);
+
+        List<BusinessResponse.StoreSummary> storeSummaries = stores.stream()
+                .map(BusinessResponse.StoreSummary::from)
+                .collect(Collectors.toList());
+
+        return AdminBusinessDetailResponse.builder()
+                .publicId(business.getPublicId())
+                .legalName(business.getLegalName())
+                .tradeName(business.getTradeName())
+                .cacNumber(business.getCacNumber())
+                .logoUrl(business.getLogoUrl())
+                .businessTypePublicId(business.getBusinessType() != null ? business.getBusinessType().getPublicId() : null)
+                .verificationStatus(business.getVerificationStatus() != null ? business.getVerificationStatus().name() : "PENDING")
+                .createdAt(business.getCreatedAt())
+                .subscriptionPlan(business.getSubscriptionPlan() != null ? business.getSubscriptionPlan().name() : null)
+                .subscriptionStatus(business.getSubscriptionStatus() != null ? business.getSubscriptionStatus().name() : null)
+                .trialEndsAt(business.getTrialEndsAt())
+                .currentPeriodEndsAt(business.getCurrentPeriodEndsAt())
+                .storeCount(stores.size())
+                .ownerCount(ownerCount)
+                .memberCount((int) memberCount)
+                .orderCount(orderCount)
+                .stores(storeSummaries)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminBusinessUserSummary> listBusinessUsers(String businessPublicId) {
+        Business business = businessRepository.findByPublicId(businessPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business", businessPublicId));
+        Long businessId = business.getId();
+
+        List<AdminBusinessUserSummary> result = new java.util.ArrayList<>();
+
+        List<BusinessOwner> owners = businessOwnerRepository.findByBusinessId(businessId);
+        List<Long> ownerUserIds = owners.stream().map(BusinessOwner::getUserId).distinct().toList();
+        java.util.Map<Long, User> userMap = ownerUserIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : userRepository.findAllById(ownerUserIds).stream().collect(Collectors.toMap(User::getId, u -> u));
+
+        for (BusinessOwner bo : owners) {
+            User u = userMap.get(bo.getUserId());
+            result.add(AdminBusinessUserSummary.builder()
+                    .userPublicId(u != null ? u.getPublicId() : null)
+                    .email(u != null ? u.getEmail() : null)
+                    .firstName(u != null ? u.getFirstName() : null)
+                    .lastName(u != null ? u.getLastName() : null)
+                    .role("OWNER")
+                    .primaryOwner(bo.isPrimaryOwner())
+                    .memberStatus(null)
+                    .build());
+        }
+
+        List<BusinessMember> members = businessMemberRepository.findByBusinessIdOrderByCreatedAtDesc(businessId);
+        for (BusinessMember m : members) {
+            User u = m.getUserId() != null ? userRepository.findById(m.getUserId()).orElse(null) : null;
+            result.add(AdminBusinessUserSummary.builder()
+                    .userPublicId(u != null ? u.getPublicId() : null)
+                    .email(m.getEmail())
+                    .firstName(u != null ? u.getFirstName() : null)
+                    .lastName(u != null ? u.getLastName() : null)
+                    .role("MEMBER")
+                    .primaryOwner(null)
+                    .memberStatus(m.getStatus() != null ? m.getStatus().name() : null)
+                    .build());
+        }
+
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> getOrdersForBusiness(String businessPublicId, Pageable pageable) {
+        Business business = businessRepository.findByPublicId(businessPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business", businessPublicId));
+        List<Long> storeIds = storeRepository.findByBusinessId(business.getId()).stream()
+                .map(com.securemarts.domain.onboarding.entity.Store::getId)
+                .toList();
+        if (storeIds.isEmpty()) {
+            return PageResponse.of(new org.springframework.data.domain.PageImpl<Order>(List.of(), pageable, 0L).map(OrderResponse::from));
+        }
+        Page<Order> page = orderRepository.findByStoreIdIn(storeIds, pageable);
+        return PageResponse.of(page.map(OrderResponse::from));
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<BusinessResponse> listBusinesses(String status, Pageable pageable) {
