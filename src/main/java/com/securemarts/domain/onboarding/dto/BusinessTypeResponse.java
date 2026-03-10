@@ -10,6 +10,7 @@ import lombok.Data;
 @Schema(description = "Business type")
 public class BusinessTypeResponse {
 
+    private String publicId;
     private String code;
     private String name;
     private String description;
@@ -17,6 +18,7 @@ public class BusinessTypeResponse {
 
     public static BusinessTypeResponse from(BusinessType t) {
         return BusinessTypeResponse.builder()
+                .publicId(t.getPublicId())
                 .code(t.getCode())
                 .name(t.getName())
                 .description(t.getDescription())
