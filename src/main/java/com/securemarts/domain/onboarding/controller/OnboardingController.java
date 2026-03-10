@@ -15,12 +15,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,6 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/onboarding")
 @RequiredArgsConstructor
+@Validated
 @Tag(name = "Business & Store Onboarding", description = "Create business, upload docs, create store, add bank account")
 @SecurityRequirement(name = "bearerAuth")
 public class OnboardingController {
@@ -40,15 +43,20 @@ public class OnboardingController {
     private final BusinessTypeRepository businessTypeRepository;
 
     @PostMapping(value = "/businesses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Create business", description = "Step 1: Create business after user verification. Send JSON as 'data' part and optional 'logo' image file.")
+    @Operation(summary = "Create business", description = "Step 1: Create business after user verification. Send form fields: legalName (required), tradeName, cacNumber, businessTypePublicId (required, from /onboarding/business-types); optional file part 'logo'.")
     public ResponseEntity<BusinessResponse> createBusiness(
             @AuthenticationPrincipal String userPublicId,
-            @Parameter(description = "Business payload as JSON string", required = true)
-            @RequestPart("data") String data,
-            @Parameter(description = "Business logo image (PNG/JPEG/WebP)", required = false)
-            @RequestPart(name = "logo", required = false) MultipartFile logo) throws java.io.IOException {
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        CreateBusinessRequest request = mapper.readValue(data, CreateBusinessRequest.class);
+            @Parameter(description = "Legal business name", required = true) @RequestParam @NotBlank(message = "legalName is required") String legalName,
+            @Parameter(description = "Trading name") @RequestParam(required = false) String tradeName,
+            @Parameter(description = "CAC registration number") @RequestParam(required = false) String cacNumber,
+            @Parameter(description = "Business type publicId from /onboarding/business-types", required = true)
+            @RequestParam(name = "businessTypePublicId") @NotBlank(message = "businessTypePublicId is required") String businessTypePublicId,
+            @Parameter(description = "Business logo image (PNG/JPEG/WebP)") @RequestPart(name = "logo", required = false) MultipartFile logo) throws java.io.IOException {
+        CreateBusinessRequest request = new CreateBusinessRequest();
+        request.setLegalName(legalName);
+        request.setTradeName(tradeName);
+        request.setCacNumber(cacNumber);
+        request.setBusinessTypePublicId(businessTypePublicId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(onboardingService.createBusiness(userPublicId, request, logo));
     }
