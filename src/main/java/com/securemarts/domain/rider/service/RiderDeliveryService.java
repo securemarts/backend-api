@@ -153,6 +153,17 @@ public class RiderDeliveryService {
                 DeliveryOrder.DeliveryStatus.IN_TRANSIT
         );
         List<DeliveryOrder> list = deliveryOrderRepository.findByRiderIdAndStatusIn(rider.getId(), statuses);
+        double riderLat = rider.getCurrentLat() != null ? rider.getCurrentLat().doubleValue() : 0;
+        double riderLng = rider.getCurrentLng() != null ? rider.getCurrentLng().doubleValue() : 0;
+        list.sort((a, b) -> {
+            double distA = a.getDeliveryLat() != null && a.getDeliveryLng() != null
+                    ? GeoUtils.distanceKm(riderLat, riderLng, a.getDeliveryLat().doubleValue(), a.getDeliveryLng().doubleValue())
+                    : Double.MAX_VALUE;
+            double distB = b.getDeliveryLat() != null && b.getDeliveryLng() != null
+                    ? GeoUtils.distanceKm(riderLat, riderLng, b.getDeliveryLat().doubleValue(), b.getDeliveryLng().doubleValue())
+                    : Double.MAX_VALUE;
+            return Double.compare(distA, distB);
+        });
         return list.stream().map(d -> toResponse(d)).collect(Collectors.toList());
     }
 

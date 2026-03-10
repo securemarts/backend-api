@@ -122,6 +122,11 @@ public class InventoryService {
 
     @Transactional
     public InventoryItemResponse reserve(Long storeId, String inventoryItemPublicId, int quantity) {
+        return reserve(storeId, inventoryItemPublicId, quantity, null, null);
+    }
+
+    @Transactional
+    public InventoryItemResponse reserve(Long storeId, String inventoryItemPublicId, int quantity, String referenceType, String referenceId) {
         InventoryItem item = getInventoryItem(storeId, inventoryItemPublicId);
         if (item.getQuantityAvailable() < quantity) {
             throw new BusinessRuleException("Insufficient quantity to reserve. Available: " + item.getQuantityAvailable());
@@ -133,6 +138,8 @@ public class InventoryService {
         movement.setInventoryItem(item);
         movement.setQuantityDelta(-quantity);
         movement.setMovementType(InventoryMovement.MovementType.RESERVE.name());
+        movement.setReferenceType(referenceType);
+        movement.setReferenceId(referenceId);
         inventoryMovementRepository.save(movement);
         return InventoryItemResponse.from(item);
     }
@@ -153,12 +160,113 @@ public class InventoryService {
         return InventoryItemResponse.from(item);
     }
 
+    /**
+     * Reserve quantity for a variant across locations (highest available first). Uses pessimistic lock to avoid races.
+     * referenceType e.g. "ORDER", referenceId e.g. order publicId.
+     */
+    @Transactional
+    public void reserveVariantQuantity(Long storeId, String variantPublicId, int quantity, String referenceType, String referenceId) {
+        if (quantity <= 0) return;
+        var variant = productVariantRepository.findByPublicId(variantPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("ProductVariant", variantPublicId));
+        if (!variant.getProduct().getStoreId().equals(storeId)) {
+            throw new BusinessRuleException("Variant does not belong to this store");
+        }
+        var items = inventoryItemRepository.findByStoreIdAndProductVariantIdForUpdate(storeId, variant.getId());
+        if (items.isEmpty()) {
+            throw new BusinessRuleException("No inventory for variant " + variantPublicId);
+        }
+        int remaining = quantity;
+        for (InventoryItem item : items) {
+            if (remaining <= 0) break;
+            int take = Math.min(remaining, item.getQuantityAvailable());
+            if (take <= 0) continue;
+            item.setQuantityAvailable(item.getQuantityAvailable() - take);
+            item.setQuantityReserved(item.getQuantityReserved() + take);
+            inventoryItemRepository.save(item);
+            InventoryMovement movement = new InventoryMovement();
+            movement.setInventoryItem(item);
+            movement.setQuantityDelta(-take);
+            movement.setMovementType(InventoryMovement.MovementType.RESERVE.name());
+            movement.setReferenceType(referenceType);
+            movement.setReferenceId(referenceId);
+            inventoryMovementRepository.save(movement);
+            remaining -= take;
+        }
+        if (remaining > 0) {
+            throw new BusinessRuleException("Insufficient stock for variant " + variantPublicId + ". Requested: " + quantity);
+        }
+    }
+
+    /**
+     * Release all quantities reserved for the given reference (e.g. ORDER + orderPublicId).
+     */
+    @Transactional
+    public void releaseByReference(Long storeId, String referenceType, String referenceId) {
+        var movements = inventoryMovementRepository.findByInventoryItem_StoreIdAndReferenceTypeAndReferenceIdAndMovementType(
+                storeId, referenceType, referenceId, InventoryMovement.MovementType.RESERVE.name());
+        for (InventoryMovement m : movements) {
+            int qty = Math.abs(m.getQuantityDelta());
+            InventoryItem item = m.getInventoryItem();
+            int toRelease = Math.min(qty, item.getQuantityReserved());
+            if (toRelease <= 0) continue;
+            item.setQuantityReserved(item.getQuantityReserved() - toRelease);
+            item.setQuantityAvailable(item.getQuantityAvailable() + toRelease);
+            inventoryItemRepository.save(item);
+            InventoryMovement releaseMovement = new InventoryMovement();
+            releaseMovement.setInventoryItem(item);
+            releaseMovement.setQuantityDelta(toRelease);
+            releaseMovement.setMovementType(InventoryMovement.MovementType.RELEASE.name());
+            releaseMovement.setReferenceType(referenceType);
+            releaseMovement.setReferenceId(referenceId);
+            inventoryMovementRepository.save(releaseMovement);
+        }
+    }
+
+    /**
+     * Convert reserved quantities to sale (payment success). Deducts from reserved and records SALE movements.
+     */
+    @Transactional
+    public void convertReservationToSale(Long storeId, String referenceType, String referenceId) {
+        var movements = inventoryMovementRepository.findByInventoryItem_StoreIdAndReferenceTypeAndReferenceIdAndMovementType(
+                storeId, referenceType, referenceId, InventoryMovement.MovementType.RESERVE.name());
+        for (InventoryMovement m : movements) {
+            int qty = Math.abs(m.getQuantityDelta());
+            InventoryItem item = m.getInventoryItem();
+            int toConvert = Math.min(qty, item.getQuantityReserved());
+            if (toConvert <= 0) continue;
+            item.setQuantityReserved(item.getQuantityReserved() - toConvert);
+            inventoryItemRepository.save(item);
+            InventoryMovement saleMovement = new InventoryMovement();
+            saleMovement.setInventoryItem(item);
+            saleMovement.setQuantityDelta(-toConvert);
+            saleMovement.setMovementType(InventoryMovement.MovementType.SALE.name());
+            saleMovement.setReferenceType(referenceType);
+            saleMovement.setReferenceId(referenceId);
+            inventoryMovementRepository.save(saleMovement);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<InventoryItemResponse> listLowStock(Long storeId) {
         ensureStoreExists(storeId);
         return inventoryItemRepository.findLowStockByStoreId(storeId).stream()
                 .map(InventoryItemResponse::from)
                 .toList();
+    }
+
+    /**
+     * Returns inventory items for a variant with pessimistic lock (for allocation). Sorted by quantity available desc.
+     * Use when allocating order lines to locations so reserve does not conflict.
+     */
+    @Transactional
+    public List<InventoryItem> getAllocationCandidatesForVariant(Long storeId, String variantPublicId) {
+        var variant = productVariantRepository.findByPublicId(variantPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("ProductVariant", variantPublicId));
+        if (!variant.getProduct().getStoreId().equals(storeId)) {
+            return List.of();
+        }
+        return inventoryItemRepository.findByStoreIdAndProductVariantIdForUpdate(storeId, variant.getId());
     }
 
     /** Total quantity available for a variant across all locations in the store. If no inventory items exist, returns unlimited so checkout is not blocked. */

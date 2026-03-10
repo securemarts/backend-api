@@ -1,7 +1,9 @@
 package com.securemarts.domain.inventory.repository;
 
 import com.securemarts.domain.inventory.entity.InventoryItem;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,6 +19,10 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     List<InventoryItem> findByStoreId(Long storeId);
 
     List<InventoryItem> findByStoreIdAndProductVariant_IdOrderByQuantityAvailableDesc(Long storeId, Long productVariantId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ii FROM InventoryItem ii WHERE ii.storeId = :storeId AND ii.productVariant.id = :variantId AND ii.quantityAvailable > 0 ORDER BY ii.quantityAvailable DESC")
+    List<InventoryItem> findByStoreIdAndProductVariantIdForUpdate(@Param("storeId") Long storeId, @Param("variantId") Long variantId);
 
     @Query("SELECT ii FROM InventoryItem ii WHERE ii.storeId = :storeId AND ii.lowStockThreshold IS NOT NULL AND ii.quantityAvailable <= ii.lowStockThreshold")
     List<InventoryItem> findLowStockByStoreId(Long storeId);

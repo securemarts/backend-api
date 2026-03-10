@@ -3,12 +3,22 @@ package com.securemarts.domain.payment.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.securemarts.domain.inventory.service.InventoryService;
+import com.securemarts.domain.logistics.dto.CreateDeliveryOrderRequest;
+import com.securemarts.domain.logistics.entity.DeliveryOrder;
+import com.securemarts.domain.logistics.service.LogisticsService;
 import com.securemarts.domain.onboarding.entity.Business;
 import com.securemarts.domain.onboarding.entity.SubscriptionHistory;
 import com.securemarts.domain.onboarding.repository.BusinessRepository;
 import com.securemarts.domain.onboarding.repository.SubscriptionHistoryRepository;
 import com.securemarts.domain.onboarding.service.SubscriptionLimitsService;
+import com.securemarts.domain.order.entity.Order;
+import com.securemarts.domain.order.entity.Shipment;
+import com.securemarts.domain.order.repository.OrderRepository;
+import com.securemarts.domain.order.repository.ShipmentRepository;
+import com.securemarts.domain.payment.entity.PaymentTransaction;
 import com.securemarts.domain.payment.gateway.PaystackSubscriptionClient;
+import com.securemarts.domain.payment.repository.PaymentTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +51,11 @@ public class PaystackWebhookService {
     private final SubscriptionHistoryRepository subscriptionHistoryRepository;
     private final PaystackSubscriptionClient paystackSubscriptionClient;
     private final SubscriptionLimitsService subscriptionLimitsService;
+    private final PaymentTransactionRepository paymentTransactionRepository;
+    private final OrderRepository orderRepository;
+    private final InventoryService inventoryService;
+    private final ShipmentRepository shipmentRepository;
+    private final LogisticsService logisticsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -91,6 +106,59 @@ public class PaystackWebhookService {
     }
 
     private void handleChargeSuccess(JsonNode data) {
+        String reference = data.path("reference").asText(null);
+        if (reference != null && !reference.isBlank()) {
+            var optTxn = paymentTransactionRepository.findByGatewayReference(reference);
+            if (optTxn.isPresent()) {
+                PaymentTransaction txn = optTxn.get();
+                if (txn.getOrderId() != null && txn.getStatus() != PaymentTransaction.PaymentStatus.SUCCESS) {
+                    txn.setStatus(PaymentTransaction.PaymentStatus.SUCCESS);
+                    paymentTransactionRepository.save(txn);
+                    orderRepository.findById(txn.getOrderId()).ifPresent(order -> {
+                        inventoryService.convertReservationToSale(order.getStoreId(), "ORDER", order.getPublicId());
+                        order.setStatus(Order.OrderStatus.PAID);
+                        orderRepository.save(order);
+                        if (order.getDeliveryAddress() != null && !order.getDeliveryAddress().isBlank()
+                                && order.getDeliveryLat() != null && order.getDeliveryLng() != null) {
+                            var shipments = shipmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId());
+                            if (shipments.isEmpty()) {
+                                CreateDeliveryOrderRequest req = new CreateDeliveryOrderRequest();
+                                req.setOrderPublicId(order.getPublicId());
+                                req.setDeliveryAddress(order.getDeliveryAddress());
+                                req.setDeliveryLat(order.getDeliveryLat());
+                                req.setDeliveryLng(order.getDeliveryLng());
+                                req.setAutoAssign(true);
+                                try {
+                                    logisticsService.createDeliveryOrder(order.getStoreId(), req);
+                                } catch (Exception e) {
+                                    log.warn("Webhook: auto-create delivery on payment success failed: {}", e.getMessage());
+                                }
+                            } else {
+                                for (Shipment shipment : shipments) {
+                                    CreateDeliveryOrderRequest req = new CreateDeliveryOrderRequest();
+                                    req.setOrderPublicId(order.getPublicId());
+                                    req.setShipmentId(shipment.getId());
+                                    req.setDeliveryAddress(order.getDeliveryAddress());
+                                    req.setDeliveryLat(order.getDeliveryLat());
+                                    req.setDeliveryLng(order.getDeliveryLng());
+                                    req.setAutoAssign(true);
+                                    try {
+                                        DeliveryOrder d = logisticsService.createDeliveryOrder(order.getStoreId(), req);
+                                        shipment.setDeliveryOrderId(d.getId());
+                                        shipmentRepository.save(shipment);
+                                    } catch (Exception e) {
+                                        log.warn("Webhook: auto-create delivery for shipment {} failed: {}", shipment.getPublicId(), e.getMessage());
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    log.info("Paystack webhook: order payment success for reference {}", reference);
+                    return;
+                }
+            }
+        }
+
         JsonNode metadata = data.path("metadata");
         String businessPublicId = metadata.path("business_public_id").asText(null);
         if (businessPublicId == null || businessPublicId.isBlank()) return;

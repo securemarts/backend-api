@@ -12,7 +12,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "delivery_orders", indexes = {
-        @Index(name = "idx_delivery_orders_order_id", columnList = "order_id", unique = true),
+        @Index(name = "idx_delivery_orders_order_id", columnList = "order_id"),
+        @Index(name = "idx_delivery_orders_shipment_id", columnList = "shipment_id", unique = true),
         @Index(name = "idx_delivery_orders_store", columnList = "store_id"),
         @Index(name = "idx_delivery_orders_rider", columnList = "rider_id"),
         @Index(name = "idx_delivery_orders_status", columnList = "status"),
@@ -25,6 +26,10 @@ public class DeliveryOrder extends BaseEntity {
 
     @Column(name = "order_id", nullable = false)
     private Long orderId;
+
+    /** When set, this delivery is for a specific shipment (one delivery per shipment). */
+    @Column(name = "shipment_id")
+    private Long shipmentId;
 
     @Column(name = "store_id", nullable = false)
     private Long storeId;
@@ -75,6 +80,16 @@ public class DeliveryOrder extends BaseEntity {
 
     @Column(name = "batch_id", length = 36)
     private String batchId;
+
+    /** Carrier: INTERNAL (in-house rider), or external e.g. SENDSTACK, MAX, DHL. */
+    @Column(name = "carrier_code", length = 30)
+    private String carrierCode = "INTERNAL";
+
+    @Column(name = "external_shipment_id", length = 255)
+    private String externalShipmentId;
+
+    @Column(name = "tracking_url", length = 500)
+    private String trackingUrl;
 
     @Version
     private int version;

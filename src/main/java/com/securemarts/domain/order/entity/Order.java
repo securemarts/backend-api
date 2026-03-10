@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,8 +53,15 @@ public class Order extends BaseEntity {
     @Column(name = "delivery_lng", precision = 10, scale = 7)
     private BigDecimal deliveryLng;
 
+    /** When the checkout reservation expires (e.g. 30 min); release job uses this. */
+    @Column(name = "reservation_expires_at")
+    private Instant reservationExpiresAt;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
+
+    @OneToMany(mappedBy = "order")
+    private List<Shipment> shipments = new ArrayList<>();
 
     public enum OrderStatus {
         PENDING,

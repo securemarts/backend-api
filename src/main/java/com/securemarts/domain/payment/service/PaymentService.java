@@ -2,9 +2,13 @@ package com.securemarts.domain.payment.service;
 
 import com.securemarts.common.exception.BusinessRuleException;
 import com.securemarts.common.exception.ResourceNotFoundException;
+import com.securemarts.domain.inventory.service.InventoryService;
 import com.securemarts.domain.logistics.dto.CreateDeliveryOrderRequest;
+import com.securemarts.domain.logistics.entity.DeliveryOrder;
 import com.securemarts.domain.logistics.service.LogisticsService;
 import com.securemarts.domain.order.entity.Order;
+import com.securemarts.domain.order.entity.Shipment;
+import com.securemarts.domain.order.repository.ShipmentRepository;
 import com.securemarts.domain.payment.dto.InitiatePaymentRequest;
 import com.securemarts.domain.payment.dto.PaymentResponse;
 import com.securemarts.domain.payment.entity.PaymentTransaction;
@@ -32,6 +36,8 @@ public class PaymentService {
     private final StoreRepository storeRepository;
     private final OrderRepository orderRepository;
     private final LogisticsService logisticsService;
+    private final InventoryService inventoryService;
+    private final ShipmentRepository shipmentRepository;
     private final List<PaymentGateway> gateways;
     private Map<String, PaymentGateway> gatewayByName;
 
@@ -90,27 +96,51 @@ public class PaymentService {
             txn.setStatus(PaymentTransaction.PaymentStatus.SUCCESS);
             if (txn.getOrderId() != null) {
                 orderRepository.findById(txn.getOrderId()).ifPresent(order -> {
+                    inventoryService.convertReservationToSale(order.getStoreId(), "ORDER", order.getPublicId());
                     order.setStatus(Order.OrderStatus.PAID);
                     orderRepository.save(order);
                     if (order.getDeliveryAddress() != null && !order.getDeliveryAddress().isBlank()
                             && order.getDeliveryLat() != null && order.getDeliveryLng() != null) {
-                        CreateDeliveryOrderRequest deliveryRequest = new CreateDeliveryOrderRequest();
-                        deliveryRequest.setOrderPublicId(order.getPublicId());
-                        deliveryRequest.setDeliveryAddress(order.getDeliveryAddress());
-                        deliveryRequest.setDeliveryLat(order.getDeliveryLat());
-                        deliveryRequest.setDeliveryLng(order.getDeliveryLng());
-                        deliveryRequest.setAutoAssign(true);
-                        try {
-                            logisticsService.createDeliveryOrder(order.getStoreId(), deliveryRequest);
-                        } catch (Exception e) {
-                            // Log but do not fail verify; merchant can create delivery manually
-                            org.slf4j.LoggerFactory.getLogger(PaymentService.class).warn("Auto-create delivery on payment success failed: {}", e.getMessage());
+                        var shipments = shipmentRepository.findByOrder_IdOrderByCreatedAtAsc(order.getId());
+                        if (shipments.isEmpty()) {
+                            CreateDeliveryOrderRequest deliveryRequest = new CreateDeliveryOrderRequest();
+                            deliveryRequest.setOrderPublicId(order.getPublicId());
+                            deliveryRequest.setDeliveryAddress(order.getDeliveryAddress());
+                            deliveryRequest.setDeliveryLat(order.getDeliveryLat());
+                            deliveryRequest.setDeliveryLng(order.getDeliveryLng());
+                            deliveryRequest.setAutoAssign(true);
+                            try {
+                                logisticsService.createDeliveryOrder(order.getStoreId(), deliveryRequest);
+                            } catch (Exception e) {
+                                org.slf4j.LoggerFactory.getLogger(PaymentService.class).warn("Auto-create delivery on payment success failed: {}", e.getMessage());
+                            }
+                        } else {
+                            for (Shipment shipment : shipments) {
+                                CreateDeliveryOrderRequest deliveryRequest = new CreateDeliveryOrderRequest();
+                                deliveryRequest.setOrderPublicId(order.getPublicId());
+                                deliveryRequest.setShipmentId(shipment.getId());
+                                deliveryRequest.setDeliveryAddress(order.getDeliveryAddress());
+                                deliveryRequest.setDeliveryLat(order.getDeliveryLat());
+                                deliveryRequest.setDeliveryLng(order.getDeliveryLng());
+                                deliveryRequest.setAutoAssign(true);
+                                try {
+                                    DeliveryOrder d = logisticsService.createDeliveryOrder(order.getStoreId(), deliveryRequest);
+                                    shipment.setDeliveryOrderId(d.getId());
+                                    shipmentRepository.save(shipment);
+                                } catch (Exception e) {
+                                    org.slf4j.LoggerFactory.getLogger(PaymentService.class).warn("Auto-create delivery for shipment {} failed: {}", shipment.getPublicId(), e.getMessage());
+                                }
+                            }
                         }
                     }
                 });
             }
         } else if (!vr.isSuccess()) {
             txn.setStatus(PaymentTransaction.PaymentStatus.FAILED);
+            if (txn.getOrderId() != null) {
+                orderRepository.findById(txn.getOrderId()).ifPresent(order ->
+                        inventoryService.releaseByReference(order.getStoreId(), "ORDER", order.getPublicId()));
+            }
         }
         txn.setGatewayResponse(vr.getMessage());
         paymentTransactionRepository.save(txn);

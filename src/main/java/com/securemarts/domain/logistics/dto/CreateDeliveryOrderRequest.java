@@ -14,6 +14,9 @@ public class CreateDeliveryOrderRequest {
     @NotBlank
     private String orderPublicId;
 
+    /** When set, this delivery is for a specific shipment (one delivery per shipment). */
+    private Long shipmentId;
+
     private String pickupAddress;
 
     @NotBlank

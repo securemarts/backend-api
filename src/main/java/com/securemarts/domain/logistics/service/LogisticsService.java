@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -109,7 +110,7 @@ public class LogisticsService {
 
     // --- Delivery orders (Chowdeck: zone check → fee → nearest rider) ---
     @Transactional
-    public DeliveryOrderResponse createDeliveryOrder(Long storeId, CreateDeliveryOrderRequest request) {
+    public DeliveryOrder createDeliveryOrder(Long storeId, CreateDeliveryOrderRequest request) {
         var store = storeRepository.findById(storeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Store", String.valueOf(storeId)));
         var effectivePlan = subscriptionLimitsService.getEffectivePlan(store.getBusiness());
@@ -121,7 +122,11 @@ public class LogisticsService {
         if (!order.getStoreId().equals(storeId)) {
             throw new IllegalArgumentException("Order does not belong to this store");
         }
-        if (deliveryOrderRepository.findByOrderId(order.getId()).isPresent()) {
+        if (request.getShipmentId() != null) {
+            if (deliveryOrderRepository.findByShipmentId(request.getShipmentId()).isPresent()) {
+                throw new IllegalArgumentException("Delivery order already exists for this shipment");
+            }
+        } else if (!deliveryOrderRepository.findAllByOrderId(order.getId()).isEmpty()) {
             throw new IllegalArgumentException("Delivery order already exists for this order");
         }
 
@@ -164,6 +169,9 @@ public class LogisticsService {
 
         DeliveryOrder d = new DeliveryOrder();
         d.setOrderId(order.getId());
+        if (request.getShipmentId() != null) {
+            d.setShipmentId(request.getShipmentId());
+        }
         d.setStoreId(storeId);
         d.setDeliveryAddress(request.getDeliveryAddress());
         d.setPickupAddress(request.getPickupAddress());
@@ -201,12 +209,10 @@ public class LogisticsService {
 
         d = deliveryOrderRepository.save(d);
 
-        DeliveryOrderResponse resp = DeliveryOrderResponse.from(d);
-        resp.setOrderId(order.getPublicId());
         if (d.getRider() != null) {
             eventPublisher.publishEvent(new DeliveryStatusChangedEvent(this, d.getPublicId(), "PENDING", "ASSIGNED", d.getRider().getPublicId()));
         }
-        return resp;
+        return d;
     }
 
     @Transactional(readOnly = true)
@@ -258,6 +264,36 @@ public class LogisticsService {
         DeliveryOrderResponse r = DeliveryOrderResponse.from(d);
         orderRepository.findById(d.getOrderId()).ifPresent(o -> r.setOrderId(o.getPublicId()));
         return r;
+    }
+
+    /** Assign a batch of PENDING deliveries to one rider. Sets same batch_id on all; rider gets route (ordered by distance in rider app). */
+    @Transactional
+    public void assignBatch(Long storeId, List<String> deliveryOrderPublicIds, String riderPublicId) {
+        if (deliveryOrderPublicIds == null || deliveryOrderPublicIds.isEmpty()) return;
+        Rider rider = riderRepository.findByPublicId(riderPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Rider", riderPublicId));
+        if (!rider.isAvailable()) {
+            throw new IllegalArgumentException("Rider is not available");
+        }
+        String batchId = UUID.randomUUID().toString();
+        for (String publicId : deliveryOrderPublicIds) {
+            DeliveryOrder d = deliveryOrderRepository.findByPublicId(publicId)
+                    .orElseThrow(() -> new ResourceNotFoundException("DeliveryOrder", publicId));
+            if (!d.getStoreId().equals(storeId)) {
+                throw new ResourceNotFoundException("DeliveryOrder", publicId);
+            }
+            if (d.getStatus() != DeliveryOrder.DeliveryStatus.PENDING) {
+                throw new IllegalArgumentException("Delivery " + publicId + " is not PENDING");
+            }
+            String previousStatus = d.getStatus().name();
+            d.setBatchId(batchId);
+            d.setRider(rider);
+            d.setStatus(DeliveryOrder.DeliveryStatus.ASSIGNED);
+            deliveryOrderRepository.save(d);
+            eventPublisher.publishEvent(new DeliveryStatusChangedEvent(this, d.getPublicId(), previousStatus, d.getStatus().name(), rider.getPublicId()));
+        }
+        rider.setAvailable(false);
+        riderRepository.save(rider);
     }
 
     @Transactional
