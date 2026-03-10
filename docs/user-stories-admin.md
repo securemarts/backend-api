@@ -23,6 +23,9 @@ If you have a separate admin dashboard, these map to the admin APIs. All endpoin
 | As a... | I want to... | So that... | API(s) |
 | ------- | ------------------------------------------------ | --------------------------- | ----------------------------------------------------------------- |
 | Admin | List businesses (optional filter by verification status) | I can review pending businesses | `GET /admin/businesses` (status: PENDING, UNDER_REVIEW, APPROVED, REJECTED) |
+| Admin | View a business detail page by UUID (core info, subscription, counts, stores) | I can see full business context before verifying or editing | `GET /admin/businesses/{businessPublicId}` |
+| Admin | List users (owners and members) for a business | I can see who is associated with the business | `GET /admin/businesses/{businessPublicId}/users` |
+| Admin | List orders for a business (across all its stores) | I can see order activity for that business | `GET /admin/businesses/{businessPublicId}/orders` (paginated) |
 | Admin | Approve or reject a business (verification) | Merchants can go live or get feedback | `PATCH /admin/businesses/{businessPublicId}/verification` |
 | Admin | Update a business subscription (plan, status, trial, period) | I can grant trials or fix subscription issues | `PATCH /admin/businesses/{businessPublicId}/subscription` |
 

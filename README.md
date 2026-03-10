@@ -324,7 +324,7 @@ All errors use a consistent shape:
 - **Roles:** `SUPERUSER`, `PLATFORM_ADMIN`, `SUPPORT` (an admin can have multiple roles).
 - **Permissions (scopes):** Stored in `admin_permissions` and mapped per role in `admin_role_permissions`. Examples: `business:list`, `business:approve`, `admin:list`, `admin:read`, `admin:create`, `admin:invite`, `admin:update`, `admin:delete`. SUPERUSER bypasses all; others are restricted by scope.
 - **Visibility:** Login response includes `roles` and `scopes`. Use **GET /admin/auth/me** (with admin JWT) to get current admin’s `publicId`, `email`, `fullName`, `roles`, and `scopes` for UI (e.g. show/hide Business Management, User Management, invite).
-- **Controllers:** Admin Auth, Business Management (list/approve businesses), User Management (list/get/update/delete admins, invite, complete-setup). All protected by role + `@PreAuthorize` with `SCOPE_<code>` where applicable.
+- **Controllers:** Admin Auth, Business Management (list businesses, get business detail by UUID, list business users, list business orders, approve/reject verification, update subscription), User Management (list/get/update/delete admins, invite, complete-setup). All protected by role + `@PreAuthorize` with `SCOPE_<code>` where applicable.
 
 ### Merchant (store) staff
 
