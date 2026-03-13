@@ -70,8 +70,12 @@ ALTER TABLE products DROP CONSTRAINT IF EXISTS products_collection_id_fkey;
 ALTER TABLE products DROP COLUMN collection_id;
 
 -- Inventory restructure: inventory_items (store+variant metadata) + inventory_levels (per location quantities)
--- 1. Rename current inventory_items to legacy
+-- 1. Rename current inventory_items to legacy and drop old indexes (they keep original names after rename)
 ALTER TABLE inventory_items RENAME TO inventory_items_legacy;
+DROP INDEX IF EXISTS idx_inventory_items_store_id;
+DROP INDEX IF EXISTS idx_inventory_items_variant_id;
+DROP INDEX IF EXISTS idx_inventory_items_store_variant;
+DROP INDEX IF EXISTS idx_inventory_items_variant_location;
 
 -- 2. Create new inventory_items (one row per store + variant)
 CREATE TABLE inventory_items (
