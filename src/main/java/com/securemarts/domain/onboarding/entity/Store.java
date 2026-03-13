@@ -59,6 +59,7 @@ public class Store extends BaseEntity {
     public enum SalesChannel {
         ONLINE,
         RETAIL,
-        BOTH
+        BOTH,
+        NONE
     }
 }
