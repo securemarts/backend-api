@@ -5,7 +5,6 @@ import com.securemarts.common.exception.ResourceNotFoundException;
 import com.securemarts.domain.cart.entity.Cart;
 import com.securemarts.domain.cart.entity.CartItem;
 import com.securemarts.domain.cart.repository.CartRepository;
-import com.securemarts.domain.inventory.entity.InventoryItem;
 import com.securemarts.domain.inventory.entity.Location;
 import com.securemarts.domain.inventory.service.InventoryService;
 import com.securemarts.domain.order.dto.OrderResponse;
@@ -95,21 +94,21 @@ public class CheckoutService {
         List<OrderItemAllocation> allocations = new ArrayList<>();
         Set<Long> locationIds = new HashSet<>();
         for (OrderItem oi : sortedItems) {
-            List<InventoryItem> candidates = inventoryService.getAllocationCandidatesForVariant(storeId, oi.getProductVariant().getPublicId());
+            List<com.securemarts.domain.inventory.entity.InventoryLevel> candidates = inventoryService.getAllocationCandidatesForVariant(storeId, oi.getProductVariant().getPublicId());
             if (candidates.isEmpty()) {
                 throw new BusinessRuleException("No inventory for variant " + oi.getProductVariant().getTitle());
             }
             int remaining = oi.getQuantity();
-            for (InventoryItem item : candidates) {
+            for (com.securemarts.domain.inventory.entity.InventoryLevel level : candidates) {
                 if (remaining <= 0) break;
-                int take = Math.min(remaining, item.getQuantityAvailable());
+                int take = Math.min(remaining, level.getQuantityAvailable());
                 if (take <= 0) continue;
                 OrderItemAllocation alloc = new OrderItemAllocation();
                 alloc.setOrderItem(oi);
-                alloc.setLocation(item.getLocation());
+                alloc.setLocation(level.getLocation());
                 alloc.setQuantity(take);
                 allocations.add(alloc);
-                locationIds.add(item.getLocation().getId());
+                locationIds.add(level.getLocation().getId());
                 remaining -= take;
             }
             if (remaining > 0) {
@@ -129,8 +128,7 @@ public class CheckoutService {
         }
         orderItemAllocationRepository.saveAll(allocations);
         for (OrderItemAllocation a : allocations) {
-            var invItem = inventoryService.getOrCreateInventoryItem(storeId, a.getOrderItem().getProductVariant().getPublicId(), a.getLocation().getPublicId());
-            inventoryService.reserve(storeId, invItem.getPublicId(), a.getQuantity(), "ORDER", order.getPublicId());
+            inventoryService.reserveAtLevel(storeId, a.getOrderItem().getProductVariant().getPublicId(), a.getLocation().getPublicId(), a.getQuantity(), "ORDER", order.getPublicId());
         }
         cart.getItems().clear();
         cartRepository.save(cart);
