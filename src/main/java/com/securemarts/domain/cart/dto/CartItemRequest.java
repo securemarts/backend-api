@@ -11,11 +11,11 @@ import lombok.Data;
 public class CartItemRequest {
 
     @NotBlank
-    @Schema(description = "Product variant public ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Product variant public ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "ffb7e392-8d86-4f6b-8fdb-abf285885fca")
     private String variantPublicId;
 
     @NotNull
     @Min(1)
-    @Schema(description = "Quantity", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Quantity", requiredMode = Schema.RequiredMode.REQUIRED, example = "2")
     private Integer quantity;
 }
