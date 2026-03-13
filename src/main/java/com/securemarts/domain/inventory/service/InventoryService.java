@@ -424,6 +424,84 @@ public class InventoryService {
         }
     }
 
+    /**
+     * Increment quantityIncoming at a specific inventory level.
+     */
+    @Transactional
+    public void incrementIncoming(InventoryLevel level, int quantity) {
+        level.setQuantityIncoming(level.getQuantityIncoming() + quantity);
+        inventoryLevelRepository.save(level);
+    }
+
+    /**
+     * Decrement quantityIncoming at a specific inventory level (clamped at 0).
+     */
+    @Transactional
+    public void decrementIncoming(InventoryLevel level, int quantity) {
+        level.setQuantityIncoming(Math.max(0, level.getQuantityIncoming() - quantity));
+        inventoryLevelRepository.save(level);
+    }
+
+    /**
+     * Add available stock and record a movement. Used when receiving PO items or transfer items.
+     */
+    @Transactional
+    public void addAvailableStock(InventoryLevel level, int quantity, String movementType, String referenceType, String referenceId) {
+        level.setQuantityAvailable(level.getQuantityAvailable() + quantity);
+        inventoryLevelRepository.save(level);
+        recordMovement(level, quantity, movementType, referenceType, referenceId);
+    }
+
+    /**
+     * Deduct reserved stock and record a movement. Used when shipping a transfer.
+     */
+    @Transactional
+    public void deductReservedStock(InventoryLevel level, int quantity, String movementType, String referenceType, String referenceId) {
+        int toDeduct = Math.min(quantity, level.getQuantityReserved());
+        level.setQuantityReserved(level.getQuantityReserved() - toDeduct);
+        inventoryLevelRepository.save(level);
+        recordMovement(level, -toDeduct, movementType, referenceType, referenceId);
+    }
+
+    /**
+     * Reserve stock at a known level (no variant lookup needed).
+     */
+    @Transactional
+    public void reserveAtLevel(InventoryLevel level, int quantity, String referenceType, String referenceId) {
+        if (level.getQuantityAvailable() < quantity) {
+            throw new BusinessRuleException("Insufficient quantity at " + level.getLocation().getName()
+                    + ". Available: " + level.getQuantityAvailable());
+        }
+        level.setQuantityAvailable(level.getQuantityAvailable() - quantity);
+        level.setQuantityReserved(level.getQuantityReserved() + quantity);
+        inventoryLevelRepository.save(level);
+        recordMovement(level, -quantity, InventoryMovement.MovementType.RESERVE.name(), referenceType, referenceId);
+    }
+
+    /**
+     * Release reserved stock at a known level.
+     */
+    @Transactional
+    public void releaseAtLevel(InventoryLevel level, int quantity, String referenceType, String referenceId) {
+        int toRelease = Math.min(quantity, level.getQuantityReserved());
+        if (toRelease <= 0) return;
+        level.setQuantityReserved(level.getQuantityReserved() - toRelease);
+        level.setQuantityAvailable(level.getQuantityAvailable() + toRelease);
+        inventoryLevelRepository.save(level);
+        recordMovement(level, toRelease, InventoryMovement.MovementType.RELEASE.name(), referenceType, referenceId);
+    }
+
+    private void recordMovement(InventoryLevel level, int delta, String movementType, String referenceType, String referenceId) {
+        InventoryMovement movement = new InventoryMovement();
+        movement.setInventoryItem(level.getInventoryItem());
+        movement.setInventoryLevel(level);
+        movement.setQuantityDelta(delta);
+        movement.setMovementType(movementType);
+        movement.setReferenceType(referenceType);
+        movement.setReferenceId(referenceId);
+        inventoryMovementRepository.save(movement);
+    }
+
     private void ensureStoreExists(Long storeId) {
         if (!storeRepository.existsById(storeId)) {
             throw new ResourceNotFoundException("Store", String.valueOf(storeId));
