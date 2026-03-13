@@ -47,4 +47,10 @@ public class NoOpFileStorageService implements FileStorageService {
         log.warn("Storage not configured; upload ignored");
         return null;
     }
+
+    @Override
+    public String storeCollectionImage(String storePublicId, MultipartFile file) throws IOException {
+        log.warn("Storage not configured; collection image upload ignored");
+        return null;
+    }
 }

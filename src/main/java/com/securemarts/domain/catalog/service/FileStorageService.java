@@ -18,4 +18,6 @@ public interface FileStorageService {
     String storeRiderDocument(String riderPublicId, MultipartFile file) throws IOException;
 
     String storePod(String deliveryOrderPublicId, MultipartFile file) throws IOException;
+
+    String storeCollectionImage(String storePublicId, MultipartFile file) throws IOException;
 }
