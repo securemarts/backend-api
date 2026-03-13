@@ -7,10 +7,11 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Data
-@Schema(description = "Create or update product. Include a 'variants' array to set SKU, title, price, etc. You can also add variants later via POST .../products/{productPublicId}/variants.")
+@Schema(description = "Create or update product. Include options, variants (with option map and inventory per location), and optional media.")
 public class ProductRequest {
 
     @NotBlank
@@ -28,6 +29,14 @@ public class ProductRequest {
     @Schema(description = "Product status", allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"}, example = "DRAFT")
     private String status = "DRAFT";
 
+    @Size(max = 255)
+    @Schema(description = "Vendor or brand")
+    private String vendor;
+
+    @Size(max = 255)
+    @Schema(description = "Product type")
+    private String productType;
+
     @Size(max = 70)
     @Schema(description = "SEO title")
     private String seoTitle;
@@ -36,20 +45,23 @@ public class ProductRequest {
     @Schema(description = "SEO description")
     private String seoDescription;
 
-    @Schema(description = "Collection public ID")
-    private String collectionId;
+    @Schema(description = "Collection public IDs (product can be in multiple collections)")
+    private List<String> collectionIds;
 
     @Schema(description = "Tag names to associate")
     private Set<String> tagNames;
 
-    @Schema(description = "Variants (SKU, title, price per variant). Optional on create; if omitted, a single default variant is created. Can also add via POST .../products/{id}/variants.")
+    @Schema(description = "Product options (e.g. Size → S,M,L; Color → Black,White)")
+    private List<ProductOptionRequest> options;
+
+    @Schema(description = "Variants (SKU, title, price, options map, inventory per location). Optional on create; if omitted, a single default variant is created.")
     private List<ProductVariantRequest> variants;
 
     @Schema(description = "Media URLs")
     private List<ProductMediaRequest> media;
 
     @Data
-    @Schema(description = "Product variant (size, color, etc.). Used in create/update product body and in POST .../variants.")
+    @Schema(description = "Product variant with option values and inventory per location")
     public static class ProductVariantRequest {
         @Size(max = 100)
         @Schema(example = "SHIRT-M-BLK")
@@ -60,13 +72,27 @@ public class ProductRequest {
         @NotNull(message = "priceAmount is required for variants")
         @Schema(description = "Price amount", requiredMode = Schema.RequiredMode.REQUIRED, example = "2999.00")
         private java.math.BigDecimal priceAmount;
-        @Schema(description = "Compare-at (original) price for strikethrough", example = "3999.00")
+        @Schema(description = "Compare-at (original) price", example = "3999.00")
         private java.math.BigDecimal compareAtAmount;
         @Size(max = 3)
         @Schema(example = "NGN")
         private String currency = "NGN";
-        @Schema(description = "Optional JSON for custom attributes, e.g. {\"Size\":\"M\",\"Color\":\"Black\"}")
-        private String attributesJson;
+        @Size(max = 100)
+        @Schema(description = "Barcode")
+        private String barcode;
+        @Schema(description = "Weight")
+        private java.math.BigDecimal weight;
+        @Size(max = 10)
+        @Schema(description = "Weight unit", example = "kg")
+        private String weightUnit;
+        @Schema(description = "Track inventory for this variant", example = "true")
+        private boolean trackInventory = true;
+        @Schema(description = "Requires shipping", example = "true")
+        private boolean requiresShipping = true;
+        @Schema(description = "Option name → value, e.g. {\"Size\":\"M\",\"Color\":\"Black\"}")
+        private Map<String, String> options;
+        @Schema(description = "Inventory quantities per location (locationId → quantity)")
+        private List<VariantInventoryRequest> inventory;
         @Schema(description = "Display order (0-based)")
         private int position;
     }
