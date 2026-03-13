@@ -11,25 +11,25 @@ import java.math.BigDecimal;
 public class CreateOrderAndPayRequest {
 
     @NotBlank
-    @Schema(description = "Cart public ID (from get cart response)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Cart public ID (from get cart response)", requiredMode = Schema.RequiredMode.REQUIRED, example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
     private String cartId;
 
     @NotBlank
-    @Schema(description = "Customer email for payment", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Customer email for payment", requiredMode = Schema.RequiredMode.REQUIRED, example = "customer@example.com")
     private String email;
 
-    @Schema(description = "Callback URL after payment (redirect from gateway)")
+    @Schema(description = "Callback URL after payment (redirect from gateway)", example = "https://mystore.com/payment/callback")
     private String callbackUrl;
 
     @Schema(description = "Payment gateway", example = "PAYSTACK", allowableValues = {"PAYSTACK", "FLUTTERWAVE"})
     private String gateway = "PAYSTACK";
 
-    @Schema(description = "Delivery address (optional). If set with deliveryLat/deliveryLng, delivery order is created when payment succeeds.")
+    @Schema(description = "Delivery address (optional). If set with deliveryLat/deliveryLng, delivery order is created when payment succeeds.", example = "15 Awolowo Road, Ikoyi, Lagos")
     private String deliveryAddress;
 
-    @Schema(description = "Delivery latitude (required if delivery requested)")
+    @Schema(description = "Delivery latitude (required if delivery requested)", example = "6.4541")
     private BigDecimal deliveryLat;
 
-    @Schema(description = "Delivery longitude (required if delivery requested)")
+    @Schema(description = "Delivery longitude (required if delivery requested)", example = "3.4233")
     private BigDecimal deliveryLng;
 }
