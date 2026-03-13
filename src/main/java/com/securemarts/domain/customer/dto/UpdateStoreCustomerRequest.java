@@ -9,18 +9,18 @@ import java.math.BigDecimal;
 @Schema(description = "Request to update a store customer (partial)")
 public class UpdateStoreCustomerRequest {
 
-    @Schema(description = "Customer name")
+    @Schema(description = "Customer name", example = "Adebayo Johnson")
     private String name;
 
-    @Schema(description = "Customer phone")
+    @Schema(description = "Customer phone", example = "+2348012345678")
     private String phone;
 
-    @Schema(description = "Customer email")
+    @Schema(description = "Customer email", example = "adebayo@example.com")
     private String email;
 
-    @Schema(description = "Customer address")
+    @Schema(description = "Customer address", example = "25 Marina Street, Lagos Island, Lagos")
     private String address;
 
-    @Schema(description = "Credit limit for credit sales")
+    @Schema(description = "Credit limit for credit sales", example = "50000.00")
     private BigDecimal creditLimit;
 }
