@@ -9,12 +9,12 @@ import java.math.BigDecimal;
 @Schema(description = "Update delivery location (tracking)")
 public class UpdateLocationRequest {
 
-    @Schema(description = "Latitude")
+    @Schema(description = "Latitude", example = "6.5244")
     private BigDecimal latitude;
 
-    @Schema(description = "Longitude")
+    @Schema(description = "Longitude", example = "3.3792")
     private BigDecimal longitude;
 
-    @Schema(description = "Optional note")
+    @Schema(description = "Optional note", example = "At customer gate")
     private String note;
 }

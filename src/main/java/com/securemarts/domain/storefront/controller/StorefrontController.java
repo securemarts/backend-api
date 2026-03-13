@@ -5,6 +5,8 @@ import com.securemarts.domain.catalog.dto.ProductResponse;
 import com.securemarts.domain.storefront.dto.StorefrontStoreDto;
 import com.securemarts.domain.storefront.service.StorefrontService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -22,15 +24,16 @@ public class StorefrontController {
 
     @GetMapping("/{storeSlug}")
     @Operation(summary = "Get store by slug", description = "Returns public store info. Use publicId for cart and checkout. Only active stores.")
-    public ResponseEntity<StorefrontStoreDto> getStore(@PathVariable String storeSlug) {
+    public ResponseEntity<StorefrontStoreDto> getStore(
+            @Parameter(description = "Store URL slug (e.g. acme-main)", schema = @Schema(example = "acme-main")) @PathVariable String storeSlug) {
         return ResponseEntity.ok(storefrontService.getStoreBySlug(storeSlug));
     }
 
     @GetMapping("/{storeSlug}/products")
     @Operation(summary = "List products", description = "Paginated list of active products. Optional search query.")
     public ResponseEntity<PageResponse<ProductResponse>> listProducts(
-            @PathVariable String storeSlug,
-            @RequestParam(required = false) String q,
+            @Parameter(description = "Store URL slug (e.g. acme-main)", schema = @Schema(example = "acme-main")) @PathVariable String storeSlug,
+            @Parameter(description = "Search query (product title, vendor, type)", schema = @Schema(example = "cotton shirt")) @RequestParam(required = false) String q,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(storefrontService.listProducts(storeSlug, q, pageable));
     }
@@ -38,8 +41,8 @@ public class StorefrontController {
     @GetMapping("/{storeSlug}/products/{productPublicId}")
     @Operation(summary = "Get product", description = "Product detail for storefront. Only active products.")
     public ResponseEntity<ProductResponse> getProduct(
-            @PathVariable String storeSlug,
-            @PathVariable String productPublicId) {
+            @Parameter(description = "Store URL slug (e.g. acme-main)", schema = @Schema(example = "acme-main")) @PathVariable String storeSlug,
+            @Parameter(description = "Product public ID") @PathVariable String productPublicId) {
         return ResponseEntity.ok(storefrontService.getProduct(storeSlug, productPublicId));
     }
 }
