@@ -7,6 +7,7 @@ import com.securemarts.domain.catalog.dto.ProductRequest;
 import com.securemarts.domain.catalog.dto.ProductResponse;
 import com.securemarts.domain.catalog.entity.*;
 import com.securemarts.domain.catalog.repository.*;
+import com.securemarts.domain.inventory.service.InventoryService;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
 import com.securemarts.domain.onboarding.service.SubscriptionLimitsService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,8 @@ public class CatalogService {
     private final TagRepository tagRepository;
     private final StoreRepository storeRepository;
     private final SubscriptionLimitsService subscriptionLimitsService;
+    private final InventoryService inventoryService;
+    private final RecomputeSmartCollectionsService recomputeSmartCollectionsService;
 
     private static final Set<String> PRODUCT_SORT_FIELDS = Set.of(
             "id", "publicId", "title", "handle", "status", "createdAt", "updatedAt");
@@ -117,15 +120,18 @@ public class CatalogService {
         }
         product.setBodyHtml(request.getBodyHtml());
         product.setStatus(request.getStatus() != null ? Product.ProductStatus.valueOf(request.getStatus()) : Product.ProductStatus.DRAFT);
+        product.setVendor(request.getVendor());
+        product.setProductType(request.getProductType());
         product.setSeoTitle(request.getSeoTitle());
         product.setSeoDescription(request.getSeoDescription());
-        if (request.getCollectionId() != null && !request.getCollectionId().isBlank()) {
-            com.securemarts.domain.catalog.entity.Collection col = collectionRepository.findByPublicIdAndBusinessId(request.getCollectionId(), businessId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Collection", request.getCollectionId()));
-            product.setCollectionId(col.getId());
+        if (request.getStatus() != null && "ACTIVE".equals(request.getStatus())) {
+            product.setPublishedAt(java.time.Instant.now());
         }
         product = productRepository.save(product);
+        syncCollections(product, storeId, request.getCollectionIds());
         syncTags(product, businessId, request.getTagNames());
+        syncOptions(product, request.getOptions());
+        product = productRepository.save(product);
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
             for (int i = 0; i < request.getVariants().size(); i++) {
                 ProductRequest.ProductVariantRequest vr = request.getVariants().get(i);
@@ -154,6 +160,16 @@ public class CatalogService {
             }
         }
         product = productRepository.save(product);
+        if (request.getVariants() != null) {
+            for (int i = 0; i < request.getVariants().size(); i++) {
+                ProductRequest.ProductVariantRequest vr = request.getVariants().get(i);
+                if (vr.getInventory() != null && !vr.getInventory().isEmpty()) {
+                    ProductVariant v = product.getVariants().get(i);
+                    inventoryService.ensureVariantInventoryLevels(storeId, v.getPublicId(), vr.getInventory());
+                }
+            }
+        }
+        recomputeSmartCollectionsService.recomputeForStore(storeId);
         return ProductResponse.from(product);
     }
 
@@ -168,16 +184,16 @@ public class CatalogService {
         if (request.getHandle() != null) product.setHandle(request.getHandle().trim().toLowerCase().replace(' ', '-'));
         product.setBodyHtml(request.getBodyHtml());
         if (request.getStatus() != null) product.setStatus(Product.ProductStatus.valueOf(request.getStatus()));
+        product.setVendor(request.getVendor());
+        product.setProductType(request.getProductType());
+        if (request.getStatus() != null && "ACTIVE".equals(request.getStatus()) && product.getPublishedAt() == null) {
+            product.setPublishedAt(java.time.Instant.now());
+        }
         product.setSeoTitle(request.getSeoTitle());
         product.setSeoDescription(request.getSeoDescription());
-        if (request.getCollectionId() != null && !request.getCollectionId().isBlank()) {
-            com.securemarts.domain.catalog.entity.Collection col = collectionRepository.findByPublicIdAndBusinessId(request.getCollectionId(), businessId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Collection", request.getCollectionId()));
-            product.setCollectionId(col.getId());
-        } else {
-            product.setCollectionId(null);
-        }
+        syncCollections(product, storeId, request.getCollectionIds());
         syncTags(product, businessId, request.getTagNames());
+        syncOptions(product, request.getOptions());
         if (request.getVariants() != null) {
             product.getVariants().clear();
             for (int i = 0; i < request.getVariants().size(); i++) {
@@ -199,6 +215,16 @@ public class CatalogService {
             }
         }
         product = productRepository.save(product);
+        if (request.getVariants() != null) {
+            for (int i = 0; i < request.getVariants().size(); i++) {
+                ProductRequest.ProductVariantRequest vr = request.getVariants().get(i);
+                if (vr.getInventory() != null && !vr.getInventory().isEmpty()) {
+                    ProductVariant v = product.getVariants().get(i);
+                    inventoryService.ensureVariantInventoryLevels(storeId, v.getPublicId(), vr.getInventory());
+                }
+            }
+        }
+        recomputeSmartCollectionsService.recomputeForStore(storeId);
         return ProductResponse.from(product);
     }
 
@@ -209,6 +235,7 @@ public class CatalogService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", productPublicId));
         product.setDeletedAt(java.time.Instant.now());
         productRepository.save(product);
+        recomputeSmartCollectionsService.recomputeForStore(storeId);
     }
 
     @Transactional
@@ -315,13 +342,22 @@ public class CatalogService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product variant", variantPublicId));
         v.setSku(request.getSku());
         v.setTitle(request.getTitle());
+        v.setBarcode(request.getBarcode());
         v.setPriceAmount(request.getPriceAmount() != null ? request.getPriceAmount() : BigDecimal.ZERO);
         v.setCompareAtAmount(request.getCompareAtAmount());
         v.setCurrency(request.getCurrency() != null ? request.getCurrency() : "NGN");
-        v.setAttributesJson(request.getAttributesJson());
+        v.setWeight(request.getWeight());
+        v.setWeightUnit(request.getWeightUnit());
+        v.setTrackInventory(request.isTrackInventory());
+        v.setRequiresShipping(request.isRequiresShipping());
         if (request.getPosition() >= 0) v.setPosition(request.getPosition());
+        syncVariantOptionValues(v, product, request.getOptions());
         productVariantRepository.save(v);
+        if (request.getInventory() != null && !request.getInventory().isEmpty()) {
+            inventoryService.ensureVariantInventoryLevels(storeId, v.getPublicId(), request.getInventory());
+        }
         product = productRepository.save(product);
+        recomputeSmartCollectionsService.recomputeForStore(storeId);
         return ProductResponse.from(product);
     }
 
@@ -359,23 +395,99 @@ public class CatalogService {
         product.setTags(newTags);
     }
 
+    private void syncCollections(Product product, Long storeId, List<String> collectionIds) {
+        product.getCollectionProducts().clear();
+        if (collectionIds != null && !collectionIds.isEmpty()) {
+            int position = 0;
+            for (String publicId : collectionIds) {
+                if (publicId == null || publicId.isBlank()) continue;
+                final int pos = position;
+                collectionRepository.findByPublicIdAndStoreId(publicId.trim(), storeId)
+                        .ifPresent(collection -> {
+                            CollectionProduct cp = new CollectionProduct();
+                            cp.setCollectionId(collection.getId());
+                            cp.setProductId(product.getId());
+                            cp.setCollection(collection);
+                            cp.setProduct(product);
+                            cp.setPosition(pos);
+                            product.getCollectionProducts().add(cp);
+                            collection.getCollectionProducts().add(cp);
+                        });
+                position++;
+            }
+        }
+    }
+
+    private void syncOptions(Product product, List<com.securemarts.domain.catalog.dto.ProductOptionRequest> optionRequests) {
+        product.getOptions().clear();
+        if (optionRequests != null) {
+            for (int i = 0; i < optionRequests.size(); i++) {
+                com.securemarts.domain.catalog.dto.ProductOptionRequest req = optionRequests.get(i);
+                if (req == null || req.getName() == null || req.getName().isBlank()) continue;
+                ProductOption opt = new ProductOption();
+                opt.setProduct(product);
+                opt.setName(req.getName().trim());
+                opt.setPosition(i);
+                product.getOptions().add(opt);
+                if (req.getValues() != null) {
+                    for (int j = 0; j < req.getValues().size(); j++) {
+                        String val = req.getValues().get(j);
+                        if (val == null || val.isBlank()) continue;
+                        ProductOptionValue ov = new ProductOptionValue();
+                        ov.setOption(opt);
+                        ov.setValue(val.trim());
+                        ov.setPosition(j);
+                        opt.getValues().add(ov);
+                    }
+                }
+            }
+        }
+    }
+
+    private ProductOptionValue findOptionValue(Product product, String optionName, String value) {
+        if (product.getOptions() == null) return null;
+        for (ProductOption opt : product.getOptions()) {
+            if (opt.getName() != null && opt.getName().equals(optionName) && opt.getValues() != null) {
+                for (ProductOptionValue ov : opt.getValues()) {
+                    if (value != null && value.equals(ov.getValue())) return ov;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void syncVariantOptionValues(ProductVariant variant, Product product, Map<String, String> optionsMap) {
+        variant.getOptionValues().clear();
+        if (optionsMap != null && !optionsMap.isEmpty() && product.getOptions() != null) {
+            for (Map.Entry<String, String> e : optionsMap.entrySet()) {
+                ProductOptionValue ov = findOptionValue(product, e.getKey(), e.getValue());
+                if (ov != null) {
+                    VariantOptionValue vov = new VariantOptionValue();
+                    vov.setVariant(variant);
+                    vov.setOptionValue(ov);
+                    variant.getOptionValues().add(vov);
+                }
+            }
+        }
+    }
+
     private ProductVariant toVariant(Product product, ProductRequest.ProductVariantRequest vr, int position) {
         ProductVariant v = new ProductVariant();
         v.setProduct(product);
         v.setSku(vr.getSku());
         v.setTitle(vr.getTitle());
+        v.setBarcode(vr.getBarcode());
         v.setPriceAmount(vr.getPriceAmount() != null ? vr.getPriceAmount() : BigDecimal.ZERO);
         v.setCompareAtAmount(vr.getCompareAtAmount());
         v.setCurrency(vr.getCurrency() != null ? vr.getCurrency() : "NGN");
-        v.setAttributesJson(vr.getAttributesJson());
+        v.setWeight(vr.getWeight());
+        v.setWeightUnit(vr.getWeightUnit());
+        v.setTrackInventory(vr.isTrackInventory());
+        v.setRequiresShipping(vr.isRequiresShipping());
         v.setPosition(vr.getPosition() >= 0 ? vr.getPosition() : position);
+        v = productVariantRepository.save(v);
+        syncVariantOptionValues(v, product, vr.getOptions());
         return productVariantRepository.save(v);
-    }
-
-    private void ensureStoreExists(Long storeId) {
-        if (!storeRepository.existsById(storeId)) {
-            throw new ResourceNotFoundException("Store", String.valueOf(storeId));
-        }
     }
 
     private Long resolveBusinessIdFromStoreId(Long storeId) {
