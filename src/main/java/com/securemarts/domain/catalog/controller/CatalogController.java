@@ -93,20 +93,62 @@ public class CatalogController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Create product (form with image upload)", description = "Product is created for this store. Use multipart form: title (required), handle, bodyHtml, status, seoTitle, seoDescription, collectionId, tagNames (comma-separated), variants (JSON string); upload image files as 'media' parts.")
+    @Operation(summary = "Create product (form with image upload)",
+            description = "Create a product for this store using multipart form data. "
+                    + "Upload product images as 'media' file parts. "
+                    + "Pass options and variants as JSON strings (see parameter descriptions for structure).")
     @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
     public ResponseEntity<ProductResponse> createWithMedia(
             @AuthenticationPrincipal String userPublicId,
-            @Parameter(description = "Store public ID (product is created for this store)") @PathVariable String storePublicId,
+            @Parameter(description = "Store public ID (product is created for this store)")
+            @PathVariable String storePublicId,
+            @Parameter(description = "Product title (required)", schema = @Schema(example = "Classic Cotton T-Shirt"))
             @RequestParam String title,
+            @Parameter(description = "URL-friendly handle (auto-generated from title if blank)", schema = @Schema(example = "classic-cotton-t-shirt"))
             @RequestParam(required = false) String handle,
+            @Parameter(description = "Product description (supports HTML)", schema = @Schema(example = "<p>Soft cotton t-shirt available in multiple sizes.</p>"))
             @RequestParam(required = false) String bodyHtml,
-            @Parameter(description = "Product status", schema = @Schema(allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"})) @RequestParam(required = false) String status,
+            @Parameter(description = "Product status", schema = @Schema(allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"}, example = "DRAFT"))
+            @RequestParam(required = false) String status,
+            @Parameter(description = "Vendor or brand name", schema = @Schema(example = "Nike"))
+            @RequestParam(required = false) String vendor,
+            @Parameter(description = "Product type/category", schema = @Schema(example = "T-Shirts"))
+            @RequestParam(required = false) String productType,
+            @Parameter(description = "SEO title (max 70 chars)", schema = @Schema(example = "Classic Cotton T-Shirt | MyStore"))
             @RequestParam(required = false) String seoTitle,
+            @Parameter(description = "SEO meta description (max 320 chars)", schema = @Schema(example = "Shop our classic cotton t-shirt in various sizes and colors."))
             @RequestParam(required = false) String seoDescription,
-            @RequestParam(required = false) String collectionId,
+            @Parameter(description = "Collection public IDs (comma-separated). "
+                    + "Example: f9ac848c-af80-4b7d-a21f-8ba647ac1566,c728cdd4-ecd8-4490-aeef-2bd1098ffddb",
+                    schema = @Schema(example = "f9ac848c-af80-4b7d-a21f-8ba647ac1566,c728cdd4-ecd8-4490-aeef-2bd1098ffddb"))
+            @RequestParam(required = false) String collectionIds,
+            @Parameter(description = "Tag names (comma-separated). "
+                    + "Example: vintage,summer,sale",
+                    schema = @Schema(example = "vintage,summer,sale"))
             @RequestParam(required = false) String tagNames,
+            @Parameter(description = "Product options as a JSON array. Each object has: "
+                    + "name (option name like Size, Color) and values (array of option values). "
+                    + "Example: [{\"name\":\"Size\",\"values\":[\"S\",\"M\",\"L\"]},{\"name\":\"Color\",\"values\":[\"Black\",\"White\"]}]",
+                    schema = @Schema(example = "[{\"name\":\"Size\",\"values\":[\"S\",\"M\",\"L\"]},{\"name\":\"Color\",\"values\":[\"Black\",\"White\"]}]"))
+            @RequestParam(required = false) String options,
+            @Parameter(description = "Variants as a JSON array. Each object has: "
+                    + "sku (string), title (string), priceAmount (number, required), compareAtAmount (number, original/compare-at price), "
+                    + "currency (string, default NGN), barcode (string), weight (number), weightUnit (string, e.g. kg, lb, g), "
+                    + "trackInventory (boolean, default true), requiresShipping (boolean, default true), "
+                    + "options (object mapping option name to value, e.g. {\"Size\":\"M\",\"Color\":\"Black\"}), "
+                    + "inventory (array of {locationId, quantity}), position (number). "
+                    + "Example: [{\"sku\":\"TSH-M-BLK\",\"title\":\"Medium / Black\",\"priceAmount\":2999.00,"
+                    + "\"compareAtAmount\":3999.00,\"currency\":\"NGN\",\"barcode\":\"1234567890123\","
+                    + "\"weight\":0.3,\"weightUnit\":\"kg\",\"trackInventory\":true,\"requiresShipping\":true,"
+                    + "\"options\":{\"Size\":\"M\",\"Color\":\"Black\"},"
+                    + "\"inventory\":[{\"locationId\":\"e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab\",\"quantity\":50}],\"position\":0}]",
+                    schema = @Schema(example = "[{\"sku\":\"TSH-M-BLK\",\"title\":\"Medium / Black\",\"priceAmount\":2999.00,"
+                    + "\"compareAtAmount\":3999.00,\"currency\":\"NGN\",\"barcode\":\"1234567890123\","
+                    + "\"weight\":0.3,\"weightUnit\":\"kg\",\"trackInventory\":true,\"requiresShipping\":true,"
+                    + "\"options\":{\"Size\":\"M\",\"Color\":\"Black\"},"
+                    + "\"inventory\":[{\"locationId\":\"e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab\",\"quantity\":50}],\"position\":0}]"))
             @RequestParam(required = false) String variants,
+            @Parameter(description = "Product image files to upload")
             @RequestPart(value = "media", required = false) List<MultipartFile> mediaFiles) throws Exception {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
@@ -118,11 +160,18 @@ public class CatalogController {
         request.setHandle(handle);
         request.setBodyHtml(bodyHtml);
         request.setStatus(status != null && !status.isBlank() ? status : "DRAFT");
+        request.setVendor(vendor);
+        request.setProductType(productType);
         request.setSeoTitle(seoTitle);
         request.setSeoDescription(seoDescription);
-        request.setCollectionId(collectionId == null || collectionId.isBlank() ? null : collectionId);
+        if (collectionIds != null && !collectionIds.isBlank()) {
+            request.setCollectionIds(Stream.of(collectionIds.split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList()));
+        }
         if (tagNames != null && !tagNames.isBlank()) {
             request.setTagNames(Stream.of(tagNames.split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toSet()));
+        }
+        if (options != null && !options.isBlank()) {
+            request.setOptions(objectMapper.readValue(options, new TypeReference<List<com.securemarts.domain.catalog.dto.ProductOptionRequest>>() {}));
         }
         if (variants != null && !variants.isBlank()) {
             request.setVariants(objectMapper.readValue(variants, new TypeReference<List<ProductRequest.ProductVariantRequest>>() {}));
@@ -227,23 +276,42 @@ public class CatalogController {
     @PostMapping(value = "/{productPublicId}/variants", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Add variant with media",
-            description = "Add a variant and upload images. Multipart form fields: "
-                    + "sku, title, priceAmount, compareAtAmount (optional), currency (default NGN), attributesJson (optional), position (optional), "
-                    + "and one or more image files as 'media'."
+            description = "Add a variant to a product and optionally upload images. "
+                    + "Pass options and inventory as JSON strings (see parameter descriptions for structure)."
     )
     @PreAuthorize("hasAuthority('SCOPE_products:write') or hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
     public ResponseEntity<ProductResponse> addVariantWithMedia(
             @AuthenticationPrincipal String userPublicId,
             @Parameter(description = "Store public ID") @PathVariable String storePublicId,
             @Parameter(description = "Product public ID") @PathVariable String productPublicId,
+            @Parameter(description = "SKU code", schema = @Schema(example = "TSH-M-BLK"))
             @RequestPart(required = false) String sku,
+            @Parameter(description = "Variant title", schema = @Schema(example = "Medium / Black"))
             @RequestPart(required = false) String title,
+            @Parameter(description = "Price amount (required)", schema = @Schema(example = "2999.00"))
             @RequestPart java.math.BigDecimal priceAmount,
+            @Parameter(description = "Compare-at (original) price", schema = @Schema(example = "3999.00"))
             @RequestPart(required = false) java.math.BigDecimal compareAtAmount,
+            @Parameter(description = "Currency code (default NGN)", schema = @Schema(example = "NGN"))
             @RequestPart(required = false) String currency,
-            @RequestPart(required = false) String attributesJson,
+            @Parameter(description = "Barcode", schema = @Schema(example = "1234567890123"))
+            @RequestPart(required = false) String barcode,
+            @Parameter(description = "Weight value", schema = @Schema(example = "0.3"))
+            @RequestPart(required = false) java.math.BigDecimal weight,
+            @Parameter(description = "Weight unit (kg, lb, g, oz)", schema = @Schema(example = "kg"))
+            @RequestPart(required = false) String weightUnit,
+            @Parameter(description = "Option name-to-value mapping as a JSON object. "
+                    + "Example: {\"Size\":\"M\",\"Color\":\"Black\"}",
+                    schema = @Schema(example = "{\"Size\":\"M\",\"Color\":\"Black\"}"))
+            @RequestPart(required = false) String options,
+            @Parameter(description = "Inventory quantities per location as a JSON array. Each object has: "
+                    + "locationId (location public ID) and quantity (integer). "
+                    + "Example: [{\"locationId\":\"e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab\",\"quantity\":50}]",
+                    schema = @Schema(example = "[{\"locationId\":\"e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab\",\"quantity\":50}]"))
+            @RequestPart(required = false) String inventory,
+            @Parameter(description = "Display order (0-based)", schema = @Schema(example = "0"))
             @RequestPart(required = false) Integer position,
-            @Parameter(description = "Optional image files to upload to Spaces and attach to the new variant")
+            @Parameter(description = "Variant image files to upload")
             @RequestPart(value = "media", required = false) List<MultipartFile> mediaFiles) throws java.io.IOException {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "products:write");
@@ -255,7 +323,15 @@ public class CatalogController {
         request.setPriceAmount(priceAmount);
         request.setCompareAtAmount(compareAtAmount);
         request.setCurrency(currency != null && !currency.isBlank() ? currency : "NGN");
-        request.setAttributesJson(attributesJson);
+        request.setBarcode(barcode);
+        request.setWeight(weight);
+        request.setWeightUnit(weightUnit);
+        if (options != null && !options.isBlank()) {
+            request.setOptions(objectMapper.readValue(options, new TypeReference<java.util.Map<String, String>>() {}));
+        }
+        if (inventory != null && !inventory.isBlank()) {
+            request.setInventory(objectMapper.readValue(inventory, new TypeReference<List<com.securemarts.domain.catalog.dto.VariantInventoryRequest>>() {}));
+        }
         if (position != null) {
             request.setPosition(position);
         }
