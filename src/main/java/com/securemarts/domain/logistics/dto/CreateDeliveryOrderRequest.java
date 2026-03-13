@@ -12,25 +12,30 @@ import java.time.Instant;
 public class CreateDeliveryOrderRequest {
 
     @NotBlank
+    @Schema(description = "Order public ID", example = "39e7290c-1e40-4424-82fc-af93ebe5ab06", requiredMode = Schema.RequiredMode.REQUIRED)
     private String orderPublicId;
 
-    /** When set, this delivery is for a specific shipment (one delivery per shipment). */
+    @Schema(description = "Shipment ID (optional, for multi-shipment orders)")
     private Long shipmentId;
 
+    @Schema(description = "Pickup address (defaults to store address)", example = "12 Broad Street, Lagos Island, Lagos")
     private String pickupAddress;
 
     @NotBlank
+    @Schema(description = "Customer delivery address", example = "15 Awolowo Road, Ikoyi, Lagos", requiredMode = Schema.RequiredMode.REQUIRED)
     private String deliveryAddress;
 
-    /** Customer delivery coordinates (required for zone check, fee calculation, and dispatch) */
     @NotNull
+    @Schema(description = "Customer delivery latitude", example = "6.4541", requiredMode = Schema.RequiredMode.REQUIRED)
     private java.math.BigDecimal deliveryLat;
 
     @NotNull
+    @Schema(description = "Customer delivery longitude", example = "3.4233", requiredMode = Schema.RequiredMode.REQUIRED)
     private java.math.BigDecimal deliveryLng;
 
+    @Schema(description = "Scheduled delivery time (ISO 8601)", example = "2026-03-14T10:00:00Z")
     private Instant scheduledAt;
 
-    /** If false, delivery is created as PENDING for riders to claim; if true (default), nearest rider is auto-assigned. */
+    @Schema(description = "Auto-assign nearest rider (default true). If false, delivery is PENDING for riders to claim.", example = "true")
     private boolean autoAssign = true;
 }

@@ -9,6 +9,6 @@ import java.time.Instant;
 @Schema(description = "Reschedule failed delivery for reattempt")
 public class RescheduleDeliveryRequest {
 
-    @Schema(description = "New scheduled date/time")
+    @Schema(description = "New scheduled date/time", example = "2026-03-15T14:00:00Z")
     private Instant scheduledAt;
 }
