@@ -41,6 +41,7 @@ public class InventoryMovement extends BaseEntity {
         RELEASE,
         RETURN,
         TRANSFER_IN,
-        TRANSFER_OUT
+        TRANSFER_OUT,
+        PURCHASE_ORDER_RECEIVE
     }
 }
