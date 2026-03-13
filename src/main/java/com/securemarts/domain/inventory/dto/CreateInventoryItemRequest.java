@@ -9,10 +9,10 @@ import lombok.Data;
 public class CreateInventoryItemRequest {
 
     @NotBlank
-    @Schema(description = "Product variant public ID (from the business catalog)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Product variant public ID (from the business catalog)", requiredMode = Schema.RequiredMode.REQUIRED, example = "ffb7e392-8d86-4f6b-8fdb-abf285885fca")
     private String variantPublicId;
 
     @NotBlank
-    @Schema(description = "Location public ID (a place within this store, e.g. warehouse or shop)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Location public ID (a place within this store, e.g. warehouse or shop)", requiredMode = Schema.RequiredMode.REQUIRED, example = "e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab")
     private String locationPublicId;
 }

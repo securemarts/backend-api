@@ -64,7 +64,7 @@ public class InventoryController {
     }
 
     @PostMapping("/items")
-    @Operation(summary = "Create or get inventory item", description = "Link a product variant (from the business catalog) to a location in this store. Store = merchant's store; location = place within that store (e.g. warehouse, shop). Creates an inventory item with 0 qty if it doesn't exist.")
+    @Operation(summary = "Create or get inventory level", description = "Ensure a product variant has an inventory level at a location (creates item and level with 0 qty if needed). Returns the level.")
     @PreAuthorize("hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
     public ResponseEntity<InventoryItemResponse> createOrGetItem(
             @AuthenticationPrincipal String userPublicId,
@@ -73,11 +73,11 @@ public class InventoryController {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "inventory:write");
         Long storeId = resolveStoreId(storePublicId);
-        return ResponseEntity.ok(InventoryItemResponse.from(inventoryService.getOrCreateInventoryItem(storeId, request.getVariantPublicId(), request.getLocationPublicId())));
+        return ResponseEntity.ok(InventoryItemResponse.from(inventoryService.getOrCreateLevel(storeId, request.getVariantPublicId(), request.getLocationPublicId())));
     }
 
     @GetMapping("/items")
-    @Operation(summary = "List inventory items", description = "Per-location inventory for store")
+    @Operation(summary = "List inventory levels", description = "Per-location inventory for store (one row per variant+location)")
     @PreAuthorize("hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
     public ResponseEntity<List<InventoryItemResponse>> listItems(
             @AuthenticationPrincipal String userPublicId,
@@ -100,48 +100,48 @@ public class InventoryController {
         return ResponseEntity.ok(inventoryService.listLowStock(storeId));
     }
 
-    @PostMapping("/items/{inventoryItemPublicId}/adjust")
-    @Operation(summary = "Adjust stock", description = "Positive delta = add, negative = deduct")
+    @PostMapping("/items/levels/{inventoryLevelPublicId}/adjust")
+    @Operation(summary = "Adjust stock at a level", description = "Positive delta = add, negative = deduct. Use level publicId from list.")
     @PreAuthorize("hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
     public ResponseEntity<InventoryItemResponse> adjust(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String storePublicId,
-            @PathVariable String inventoryItemPublicId,
+            @PathVariable String inventoryLevelPublicId,
             @Valid @RequestBody InventoryAdjustmentRequest request) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "inventory:write");
         Long storeId = resolveStoreId(storePublicId);
-        return ResponseEntity.ok(inventoryService.adjustStock(storeId, inventoryItemPublicId, request));
+        return ResponseEntity.ok(inventoryService.adjustStock(storeId, inventoryLevelPublicId, request));
     }
 
-    @PostMapping("/items/{inventoryItemPublicId}/reserve")
-    @Operation(summary = "Reserve quantity")
+    @PostMapping("/items/levels/{inventoryLevelPublicId}/reserve")
+    @Operation(summary = "Reserve quantity at a level")
     @PreAuthorize("hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
     public ResponseEntity<InventoryItemResponse> reserve(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String storePublicId,
-            @PathVariable String inventoryItemPublicId,
+            @PathVariable String inventoryLevelPublicId,
             @RequestBody Map<String, Integer> body) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "inventory:write");
         Long storeId = resolveStoreId(storePublicId);
         int qty = body != null && body.containsKey("quantity") ? body.get("quantity") : 1;
-        return ResponseEntity.ok(inventoryService.reserve(storeId, inventoryItemPublicId, qty));
+        return ResponseEntity.ok(inventoryService.reserve(storeId, inventoryLevelPublicId, qty));
     }
 
-    @PostMapping("/items/{inventoryItemPublicId}/release")
-    @Operation(summary = "Release reserved quantity")
+    @PostMapping("/items/levels/{inventoryLevelPublicId}/release")
+    @Operation(summary = "Release reserved quantity at a level")
     @PreAuthorize("hasRole('MERCHANT_OWNER') or hasRole('MERCHANT_STAFF')")
     public ResponseEntity<InventoryItemResponse> release(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String storePublicId,
-            @PathVariable String inventoryItemPublicId,
+            @PathVariable String inventoryLevelPublicId,
             @RequestBody Map<String, Integer> body) {
         storeAccessService.ensureUserCanAccessStore(userPublicId, storePublicId);
         merchantPermissionService.ensureStorePermissionByPublicId(userPublicId, storePublicId, "inventory:write");
         Long storeId = resolveStoreId(storePublicId);
         int qty = body != null && body.containsKey("quantity") ? body.get("quantity") : 1;
-        return ResponseEntity.ok(inventoryService.release(storeId, inventoryItemPublicId, qty));
+        return ResponseEntity.ok(inventoryService.release(storeId, inventoryLevelPublicId, qty));
     }
 
     private Long resolveStoreId(String storePublicId) {
