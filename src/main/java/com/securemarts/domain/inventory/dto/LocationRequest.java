@@ -11,9 +11,9 @@ public class LocationRequest {
 
     @NotBlank
     @Size(max = 255)
-    @Schema(description = "Location name", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Location name", requiredMode = Schema.RequiredMode.REQUIRED, example = "Main Warehouse")
     private String name;
 
-    @Schema(description = "Address")
+    @Schema(description = "Address", example = "12 Broad Street, Lagos Island, Lagos")
     private String address;
 }
