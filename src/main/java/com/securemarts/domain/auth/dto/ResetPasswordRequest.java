@@ -12,6 +12,6 @@ public class ResetPasswordRequest {
 
     @NotBlank
     @Email
-    @Schema(description = "Email address", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Email address", example = "user@example.com", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 }
