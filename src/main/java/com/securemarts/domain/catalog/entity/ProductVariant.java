@@ -6,7 +6,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -27,6 +29,9 @@ public class ProductVariant extends BaseEntity {
     @Column(length = 255)
     private String title;
 
+    @Column(length = 100)
+    private String barcode;
+
     @Column(name = "price_amount", nullable = false, precision = 19, scale = 4)
     private BigDecimal priceAmount;
 
@@ -36,11 +41,26 @@ public class ProductVariant extends BaseEntity {
     @Column(nullable = false, length = 3)
     private String currency = "NGN";
 
-    @Column(name = "attributes_json", columnDefinition = "TEXT")
-    private String attributesJson;
+    @Column(name = "cost_amount", precision = 12, scale = 2)
+    private BigDecimal costAmount;
+
+    @Column(precision = 10, scale = 3)
+    private BigDecimal weight;
+
+    @Column(name = "weight_unit", length = 10)
+    private String weightUnit;
+
+    @Column(name = "track_inventory", nullable = false)
+    private boolean trackInventory = true;
+
+    @Column(name = "requires_shipping", nullable = false)
+    private boolean requiresShipping = true;
 
     @Column(nullable = false)
     private int position;
+
+    @OneToMany(mappedBy = "variant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<VariantOptionValue> optionValues = new ArrayList<>();
 
     /**
      * Optional variant-specific media (e.g. color images). Product-level media stays on Product.media.
