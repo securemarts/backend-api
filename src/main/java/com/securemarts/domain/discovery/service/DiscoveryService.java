@@ -6,8 +6,8 @@ import com.securemarts.domain.discovery.dto.DeliveryEtaResponse;
 import com.securemarts.domain.discovery.dto.LocationAvailabilityResponse;
 import com.securemarts.domain.discovery.dto.LocationSummaryResponse;
 import com.securemarts.domain.discovery.dto.StoreDiscoveryResponse;
-import com.securemarts.domain.inventory.entity.InventoryItem;
-import com.securemarts.domain.inventory.repository.InventoryItemRepository;
+import com.securemarts.domain.inventory.entity.InventoryLevel;
+import com.securemarts.domain.inventory.repository.InventoryLevelRepository;
 import com.securemarts.domain.inventory.repository.LocationRepository;
 import com.securemarts.domain.logistics.repository.ServiceZoneRepository;
 import com.securemarts.domain.onboarding.entity.Store;
@@ -34,7 +34,7 @@ public class DiscoveryService {
 
     private final StoreRepository storeRepository;
     private final LocationRepository locationRepository;
-    private final InventoryItemRepository inventoryItemRepository;
+    private final InventoryLevelRepository inventoryLevelRepository;
     private final ProductVariantRepository productVariantRepository;
     private final ProductMediaRepository productMediaRepository;
     private final ServiceZoneRepository serviceZoneRepository;
@@ -108,14 +108,14 @@ public class DiscoveryService {
                     .map(ProductVariant::getId)
                     .collect(Collectors.toList());
         }
-        List<InventoryItem> items;
+        List<InventoryLevel> levels;
         if (variantIds.isEmpty()) {
-            items = inventoryItemRepository.findByLocationIdWithVariantAndProduct(location.getId());
+            levels = inventoryLevelRepository.findByLocationIdWithVariantAndProduct(location.getId());
         } else {
-            items = inventoryItemRepository.findByLocationIdAndVariantIdInWithVariantAndProduct(location.getId(), variantIds);
+            levels = inventoryLevelRepository.findByLocationIdAndVariantIdInWithVariantAndProduct(location.getId(), variantIds);
         }
-        List<Long> productIds = items.stream()
-                .map(ii -> ii.getProductVariant().getProduct().getId())
+        List<Long> productIds = levels.stream()
+                .map(il -> il.getInventoryItem().getProductVariant().getProduct().getId())
                 .distinct()
                 .collect(Collectors.toList());
         Map<Long, String> productIdToFirstImageUrl = new HashMap<>();
@@ -125,14 +125,14 @@ public class DiscoveryService {
             }
         }
         Map<Long, String> finalImageMap = productIdToFirstImageUrl;
-        List<LocationAvailabilityResponse.VariantAvailabilityDto> variants = items.stream()
-                .map(ii -> {
-                    ProductVariant v = ii.getProductVariant();
+        List<LocationAvailabilityResponse.VariantAvailabilityDto> variants = levels.stream()
+                .map(il -> {
+                    ProductVariant v = il.getInventoryItem().getProductVariant();
                     Product p = v.getProduct();
                     String imageUrl = finalImageMap.get(p.getId());
                     return LocationAvailabilityResponse.VariantAvailabilityDto.builder()
                             .variantPublicId(v.getPublicId())
-                            .quantityAvailable(ii.getQuantityAvailable())
+                            .quantityAvailable(il.getQuantityAvailable())
                             .productTitle(p.getTitle())
                             .variantTitle(v.getTitle())
                             .sku(v.getSku())
