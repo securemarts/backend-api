@@ -17,6 +17,10 @@ public class InventoryMovement extends BaseEntity {
     @JoinColumn(name = "inventory_item_id", nullable = false)
     private InventoryItem inventoryItem;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inventory_level_id")
+    private InventoryLevel inventoryLevel;
+
     @Column(name = "quantity_delta", nullable = false)
     private int quantityDelta;
 

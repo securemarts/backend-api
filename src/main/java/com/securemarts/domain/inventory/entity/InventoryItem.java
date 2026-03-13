@@ -6,10 +6,15 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "inventory_items", indexes = {
         @Index(name = "idx_inventory_items_store_id", columnList = "store_id"),
-        @Index(name = "idx_inventory_items_variant_location", columnList = "product_variant_id, location_id", unique = true)
+        @Index(name = "idx_inventory_items_store_variant", columnList = "store_id, product_variant_id", unique = true),
+        @Index(name = "idx_inventory_items_variant_id", columnList = "product_variant_id")
 })
 @Getter
 @Setter
@@ -22,24 +27,15 @@ public class InventoryItem extends BaseEntity {
     @JoinColumn(name = "product_variant_id", nullable = false)
     private ProductVariant productVariant;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "location_id", nullable = false)
-    private Location location;
+    @Column(nullable = false)
+    private boolean tracked = true;
 
-    @Column(name = "quantity_available", nullable = false)
-    private int quantityAvailable;
+    @Column(name = "requires_shipping", nullable = false)
+    private boolean requiresShipping = true;
 
-    @Column(name = "quantity_reserved", nullable = false)
-    private int quantityReserved;
+    @Column(name = "cost_amount", precision = 12, scale = 2)
+    private BigDecimal costAmount;
 
-    @Column(name = "low_stock_threshold")
-    private Integer lowStockThreshold;
-
-    public int getQuantityOnHand() {
-        return quantityAvailable + quantityReserved;
-    }
-
-    public boolean isLowStock() {
-        return lowStockThreshold != null && quantityAvailable <= lowStockThreshold;
-    }
+    @OneToMany(mappedBy = "inventoryItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<InventoryLevel> levels = new ArrayList<>();
 }

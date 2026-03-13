@@ -7,15 +7,19 @@ import com.securemarts.domain.inventory.dto.InventoryAdjustmentRequest;
 import com.securemarts.domain.inventory.dto.InventoryItemResponse;
 import com.securemarts.domain.inventory.dto.LocationRequest;
 import com.securemarts.domain.inventory.entity.InventoryItem;
+import com.securemarts.domain.inventory.entity.InventoryLevel;
 import com.securemarts.domain.inventory.entity.InventoryMovement;
 import com.securemarts.domain.inventory.entity.Location;
 import com.securemarts.domain.inventory.repository.InventoryItemRepository;
+import com.securemarts.domain.inventory.repository.InventoryLevelRepository;
 import com.securemarts.domain.inventory.repository.InventoryMovementRepository;
 import com.securemarts.domain.inventory.repository.LocationRepository;
 import com.securemarts.domain.onboarding.entity.Business;
 import com.securemarts.domain.onboarding.entity.Store;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
 import com.securemarts.domain.onboarding.service.SubscriptionLimitsService;
+import com.securemarts.domain.catalog.dto.VariantInventoryRequest;
+import com.securemarts.domain.catalog.service.RecomputeSmartCollectionsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,10 +32,12 @@ public class InventoryService {
 
     private final LocationRepository locationRepository;
     private final InventoryItemRepository inventoryItemRepository;
+    private final InventoryLevelRepository inventoryLevelRepository;
     private final InventoryMovementRepository inventoryMovementRepository;
     private final ProductVariantRepository productVariantRepository;
     private final StoreRepository storeRepository;
     private final SubscriptionLimitsService subscriptionLimitsService;
+    private final RecomputeSmartCollectionsService recomputeSmartCollectionsService;
 
     @Transactional(readOnly = true)
     public List<Location> listLocations(Long storeId) {
@@ -65,7 +71,7 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public List<InventoryItemResponse> listInventoryByStore(Long storeId) {
         ensureStoreExists(storeId);
-        return inventoryItemRepository.findByStoreId(storeId).stream()
+        return inventoryLevelRepository.findByInventoryItem_StoreId(storeId).stream()
                 .map(InventoryItemResponse::from)
                 .toList();
     }
@@ -80,84 +86,159 @@ public class InventoryService {
         return item;
     }
 
+    @Transactional(readOnly = true)
+    public InventoryLevel getInventoryLevel(Long storeId, String levelPublicId) {
+        InventoryLevel level = inventoryLevelRepository.findByPublicId(levelPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("InventoryLevel", levelPublicId));
+        if (!level.getInventoryItem().getStoreId().equals(storeId)) {
+            throw new ResourceNotFoundException("InventoryLevel", levelPublicId);
+        }
+        return level;
+    }
+
+    /** Returns the single inventory item per (store, variant). Creates it if it does not exist. */
     @Transactional
-    public InventoryItem getOrCreateInventoryItem(Long storeId, String variantPublicId, String locationPublicId) {
+    public InventoryItem getOrCreateInventoryItem(Long storeId, String variantPublicId) {
         var variant = productVariantRepository.findByPublicId(variantPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("ProductVariant", variantPublicId));
         if (!variant.getProduct().getStoreId().equals(storeId)) {
             throw new BusinessRuleException("Variant's product is not part of this store's catalog");
         }
-        Location loc = getLocation(storeId, locationPublicId);
-        return inventoryItemRepository.findByProductVariantIdAndLocationId(variant.getId(), loc.getId())
+        return inventoryItemRepository.findByStoreIdAndProductVariantId(storeId, variant.getId())
                 .orElseGet(() -> {
                     InventoryItem item = new InventoryItem();
                     item.setStoreId(storeId);
                     item.setProductVariant(variant);
-                    item.setLocation(loc);
-                    item.setQuantityAvailable(0);
-                    item.setQuantityReserved(0);
+                    item.setTracked(variant.isTrackInventory());
+                    item.setRequiresShipping(variant.isRequiresShipping());
+                    item.setCostAmount(variant.getCostAmount());
                     return inventoryItemRepository.save(item);
                 });
     }
 
+    /** Returns the inventory level for (item, location). Creates it with zero quantities if it does not exist. */
     @Transactional
-    public InventoryItemResponse adjustStock(Long storeId, String inventoryItemPublicId, InventoryAdjustmentRequest request) {
-        InventoryItem item = getInventoryItem(storeId, inventoryItemPublicId);
-        int delta = request.getQuantityDelta();
-        if (delta == 0) return InventoryItemResponse.from(item);
-        if (delta < 0 && item.getQuantityAvailable() + delta < 0) {
-            throw new BusinessRuleException("Insufficient quantity. Available: " + item.getQuantityAvailable());
+    public InventoryLevel getOrCreateInventoryLevel(InventoryItem item, Location location) {
+        return inventoryLevelRepository.findByInventoryItemIdAndLocationId(item.getId(), location.getId())
+                .orElseGet(() -> {
+                    InventoryLevel level = new InventoryLevel();
+                    level.setInventoryItem(item);
+                    level.setLocation(location);
+                    level.setQuantityAvailable(0);
+                    level.setQuantityReserved(0);
+                    level.setQuantityIncoming(0);
+                    return inventoryLevelRepository.save(level);
+                });
+    }
+
+    /** Returns the level for (store, variant, location). Creates item and level if needed. */
+    @Transactional
+    public InventoryLevel getOrCreateLevel(Long storeId, String variantPublicId, String locationPublicId) {
+        InventoryItem item = getOrCreateInventoryItem(storeId, variantPublicId);
+        Location loc = getLocation(storeId, locationPublicId);
+        return getOrCreateInventoryLevel(item, loc);
+    }
+
+    /** Sets inventory quantities per location for a variant from product create/update. Creates item and levels as needed. */
+    @Transactional
+    public void ensureVariantInventoryLevels(Long storeId, String variantPublicId, List<VariantInventoryRequest> inventory) {
+        if (inventory == null || inventory.isEmpty()) return;
+        InventoryItem item = getOrCreateInventoryItem(storeId, variantPublicId);
+        for (VariantInventoryRequest req : inventory) {
+            if (req.getLocationId() == null || req.getLocationId().isBlank()) continue;
+            Location loc = getLocation(storeId, req.getLocationId());
+            InventoryLevel level = getOrCreateInventoryLevel(item, loc);
+            level.setQuantityAvailable(req.getQuantity() != null ? req.getQuantity() : 0);
+            level.setQuantityReserved(0);
+            level.setQuantityIncoming(0);
+            inventoryLevelRepository.save(level);
         }
-        item.setQuantityAvailable(item.getQuantityAvailable() + delta);
-        inventoryItemRepository.save(item);
+        recomputeSmartCollectionsService.recomputeForStore(storeId);
+    }
+
+    @Transactional
+    public InventoryItemResponse adjustStock(Long storeId, String inventoryLevelPublicId, InventoryAdjustmentRequest request) {
+        InventoryLevel level = getInventoryLevel(storeId, inventoryLevelPublicId);
+        int delta = request.getQuantityDelta();
+        if (delta == 0) return InventoryItemResponse.from(level);
+        if (delta < 0 && level.getQuantityAvailable() + delta < 0) {
+            throw new BusinessRuleException("Insufficient quantity. Available: " + level.getQuantityAvailable());
+        }
+        level.setQuantityAvailable(level.getQuantityAvailable() + delta);
+        inventoryLevelRepository.save(level);
         InventoryMovement movement = new InventoryMovement();
-        movement.setInventoryItem(item);
+        movement.setInventoryItem(level.getInventoryItem());
+        movement.setInventoryLevel(level);
         movement.setQuantityDelta(delta);
         movement.setMovementType(request.getMovementType() != null ? request.getMovementType() : "ADJUSTMENT");
         movement.setReferenceType(request.getReferenceType());
         movement.setReferenceId(request.getReferenceId());
         inventoryMovementRepository.save(movement);
-        return InventoryItemResponse.from(item);
+        recomputeSmartCollectionsService.recomputeForStore(storeId);
+        return InventoryItemResponse.from(level);
     }
 
     @Transactional
-    public InventoryItemResponse reserve(Long storeId, String inventoryItemPublicId, int quantity) {
-        return reserve(storeId, inventoryItemPublicId, quantity, null, null);
+    public InventoryItemResponse reserve(Long storeId, String inventoryLevelPublicId, int quantity) {
+        return reserve(storeId, inventoryLevelPublicId, quantity, null, null);
     }
 
     @Transactional
-    public InventoryItemResponse reserve(Long storeId, String inventoryItemPublicId, int quantity, String referenceType, String referenceId) {
-        InventoryItem item = getInventoryItem(storeId, inventoryItemPublicId);
-        if (item.getQuantityAvailable() < quantity) {
-            throw new BusinessRuleException("Insufficient quantity to reserve. Available: " + item.getQuantityAvailable());
+    public InventoryItemResponse reserve(Long storeId, String inventoryLevelPublicId, int quantity, String referenceType, String referenceId) {
+        InventoryLevel level = getInventoryLevel(storeId, inventoryLevelPublicId);
+        if (level.getQuantityAvailable() < quantity) {
+            throw new BusinessRuleException("Insufficient quantity to reserve. Available: " + level.getQuantityAvailable());
         }
-        item.setQuantityAvailable(item.getQuantityAvailable() - quantity);
-        item.setQuantityReserved(item.getQuantityReserved() + quantity);
-        inventoryItemRepository.save(item);
+        level.setQuantityAvailable(level.getQuantityAvailable() - quantity);
+        level.setQuantityReserved(level.getQuantityReserved() + quantity);
+        inventoryLevelRepository.save(level);
         InventoryMovement movement = new InventoryMovement();
-        movement.setInventoryItem(item);
+        movement.setInventoryItem(level.getInventoryItem());
+        movement.setInventoryLevel(level);
         movement.setQuantityDelta(-quantity);
         movement.setMovementType(InventoryMovement.MovementType.RESERVE.name());
         movement.setReferenceType(referenceType);
         movement.setReferenceId(referenceId);
         inventoryMovementRepository.save(movement);
-        return InventoryItemResponse.from(item);
+        return InventoryItemResponse.from(level);
+    }
+
+    /** Reserve quantity at a specific (variant, location). Used by checkout when allocating to a location. */
+    @Transactional
+    public void reserveAtLevel(Long storeId, String variantPublicId, String locationPublicId, int quantity, String referenceType, String referenceId) {
+        if (quantity <= 0) return;
+        InventoryLevel level = getOrCreateLevel(storeId, variantPublicId, locationPublicId);
+        if (level.getQuantityAvailable() < quantity) {
+            throw new BusinessRuleException("Insufficient quantity to reserve at this location. Available: " + level.getQuantityAvailable());
+        }
+        level.setQuantityAvailable(level.getQuantityAvailable() - quantity);
+        level.setQuantityReserved(level.getQuantityReserved() + quantity);
+        inventoryLevelRepository.save(level);
+        InventoryMovement movement = new InventoryMovement();
+        movement.setInventoryItem(level.getInventoryItem());
+        movement.setInventoryLevel(level);
+        movement.setQuantityDelta(-quantity);
+        movement.setMovementType(InventoryMovement.MovementType.RESERVE.name());
+        movement.setReferenceType(referenceType);
+        movement.setReferenceId(referenceId);
+        inventoryMovementRepository.save(movement);
     }
 
     @Transactional
-    public InventoryItemResponse release(Long storeId, String inventoryItemPublicId, int quantity) {
-        InventoryItem item = getInventoryItem(storeId, inventoryItemPublicId);
-        int toRelease = Math.min(quantity, item.getQuantityReserved());
-        if (toRelease <= 0) return InventoryItemResponse.from(item);
-        item.setQuantityReserved(item.getQuantityReserved() - toRelease);
-        item.setQuantityAvailable(item.getQuantityAvailable() + toRelease);
-        inventoryItemRepository.save(item);
+    public InventoryItemResponse release(Long storeId, String inventoryLevelPublicId, int quantity) {
+        InventoryLevel level = getInventoryLevel(storeId, inventoryLevelPublicId);
+        int toRelease = Math.min(quantity, level.getQuantityReserved());
+        if (toRelease <= 0) return InventoryItemResponse.from(level);
+        level.setQuantityReserved(level.getQuantityReserved() - toRelease);
+        level.setQuantityAvailable(level.getQuantityAvailable() + toRelease);
+        inventoryLevelRepository.save(level);
         InventoryMovement movement = new InventoryMovement();
-        movement.setInventoryItem(item);
+        movement.setInventoryItem(level.getInventoryItem());
+        movement.setInventoryLevel(level);
         movement.setQuantityDelta(toRelease);
         movement.setMovementType(InventoryMovement.MovementType.RELEASE.name());
         inventoryMovementRepository.save(movement);
-        return InventoryItemResponse.from(item);
+        return InventoryItemResponse.from(level);
     }
 
     /**
@@ -172,20 +253,21 @@ public class InventoryService {
         if (!variant.getProduct().getStoreId().equals(storeId)) {
             throw new BusinessRuleException("Variant does not belong to this store");
         }
-        var items = inventoryItemRepository.findByStoreIdAndProductVariantIdForUpdate(storeId, variant.getId());
-        if (items.isEmpty()) {
+        var levels = inventoryLevelRepository.findByStoreIdAndVariantIdForUpdate(storeId, variant.getId());
+        if (levels.isEmpty()) {
             throw new BusinessRuleException("No inventory for variant " + variantPublicId);
         }
         int remaining = quantity;
-        for (InventoryItem item : items) {
+        for (InventoryLevel level : levels) {
             if (remaining <= 0) break;
-            int take = Math.min(remaining, item.getQuantityAvailable());
+            int take = Math.min(remaining, level.getQuantityAvailable());
             if (take <= 0) continue;
-            item.setQuantityAvailable(item.getQuantityAvailable() - take);
-            item.setQuantityReserved(item.getQuantityReserved() + take);
-            inventoryItemRepository.save(item);
+            level.setQuantityAvailable(level.getQuantityAvailable() - take);
+            level.setQuantityReserved(level.getQuantityReserved() + take);
+            inventoryLevelRepository.save(level);
             InventoryMovement movement = new InventoryMovement();
-            movement.setInventoryItem(item);
+            movement.setInventoryItem(level.getInventoryItem());
+            movement.setInventoryLevel(level);
             movement.setQuantityDelta(-take);
             movement.setMovementType(InventoryMovement.MovementType.RESERVE.name());
             movement.setReferenceType(referenceType);
@@ -207,14 +289,16 @@ public class InventoryService {
                 storeId, referenceType, referenceId, InventoryMovement.MovementType.RESERVE.name());
         for (InventoryMovement m : movements) {
             int qty = Math.abs(m.getQuantityDelta());
-            InventoryItem item = m.getInventoryItem();
-            int toRelease = Math.min(qty, item.getQuantityReserved());
+            InventoryLevel level = m.getInventoryLevel();
+            if (level == null) continue;
+            int toRelease = Math.min(qty, level.getQuantityReserved());
             if (toRelease <= 0) continue;
-            item.setQuantityReserved(item.getQuantityReserved() - toRelease);
-            item.setQuantityAvailable(item.getQuantityAvailable() + toRelease);
-            inventoryItemRepository.save(item);
+            level.setQuantityReserved(level.getQuantityReserved() - toRelease);
+            level.setQuantityAvailable(level.getQuantityAvailable() + toRelease);
+            inventoryLevelRepository.save(level);
             InventoryMovement releaseMovement = new InventoryMovement();
-            releaseMovement.setInventoryItem(item);
+            releaseMovement.setInventoryItem(level.getInventoryItem());
+            releaseMovement.setInventoryLevel(level);
             releaseMovement.setQuantityDelta(toRelease);
             releaseMovement.setMovementType(InventoryMovement.MovementType.RELEASE.name());
             releaseMovement.setReferenceType(referenceType);
@@ -232,13 +316,15 @@ public class InventoryService {
                 storeId, referenceType, referenceId, InventoryMovement.MovementType.RESERVE.name());
         for (InventoryMovement m : movements) {
             int qty = Math.abs(m.getQuantityDelta());
-            InventoryItem item = m.getInventoryItem();
-            int toConvert = Math.min(qty, item.getQuantityReserved());
+            InventoryLevel level = m.getInventoryLevel();
+            if (level == null) continue;
+            int toConvert = Math.min(qty, level.getQuantityReserved());
             if (toConvert <= 0) continue;
-            item.setQuantityReserved(item.getQuantityReserved() - toConvert);
-            inventoryItemRepository.save(item);
+            level.setQuantityReserved(level.getQuantityReserved() - toConvert);
+            inventoryLevelRepository.save(level);
             InventoryMovement saleMovement = new InventoryMovement();
-            saleMovement.setInventoryItem(item);
+            saleMovement.setInventoryItem(level.getInventoryItem());
+            saleMovement.setInventoryLevel(level);
             saleMovement.setQuantityDelta(-toConvert);
             saleMovement.setMovementType(InventoryMovement.MovementType.SALE.name());
             saleMovement.setReferenceType(referenceType);
@@ -250,26 +336,25 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public List<InventoryItemResponse> listLowStock(Long storeId) {
         ensureStoreExists(storeId);
-        return inventoryItemRepository.findLowStockByStoreId(storeId).stream()
+        return inventoryLevelRepository.findByInventoryItem_StoreId(storeId).stream()
+                .filter(l -> l.getQuantityAvailable() <= 0)
                 .map(InventoryItemResponse::from)
                 .toList();
     }
 
     /**
-     * Returns inventory items for a variant with pessimistic lock (for allocation). Sorted by quantity available desc.
-     * Use when allocating order lines to locations so reserve does not conflict.
+     * Returns inventory levels for a variant with quantity available > 0, sorted by quantity desc (for allocation).
      */
     @Transactional
-    public List<InventoryItem> getAllocationCandidatesForVariant(Long storeId, String variantPublicId) {
+    public List<InventoryLevel> getAllocationCandidatesForVariant(Long storeId, String variantPublicId) {
         var variant = productVariantRepository.findByPublicId(variantPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("ProductVariant", variantPublicId));
         if (!variant.getProduct().getStoreId().equals(storeId)) {
             return List.of();
         }
-        return inventoryItemRepository.findByStoreIdAndProductVariantIdForUpdate(storeId, variant.getId());
+        return inventoryLevelRepository.findByStoreIdAndVariantIdForUpdate(storeId, variant.getId());
     }
 
-    /** Total quantity available for a variant across all locations in the store. If no inventory items exist, returns unlimited so checkout is not blocked. */
     @Transactional(readOnly = true)
     public int getAvailableQuantityForVariant(Long storeId, String variantPublicId) {
         var variant = productVariantRepository.findByPublicId(variantPublicId)
@@ -277,14 +362,36 @@ public class InventoryService {
         if (!variant.getProduct().getStoreId().equals(storeId)) {
             return 0;
         }
-        var items = inventoryItemRepository.findByStoreIdAndProductVariant_IdOrderByQuantityAvailableDesc(storeId, variant.getId());
-        if (items.isEmpty()) {
+        var levels = inventoryLevelRepository.findByInventoryItem_StoreId(storeId).stream()
+                .filter(l -> l.getInventoryItem().getProductVariant().getId().equals(variant.getId()))
+                .toList();
+        if (levels.isEmpty()) {
             return Integer.MAX_VALUE;
         }
-        return items.stream().mapToInt(InventoryItem::getQuantityAvailable).sum();
+        return levels.stream().mapToInt(InventoryLevel::getQuantityAvailable).sum();
     }
 
-    /** Deduct quantity for a variant (allocates across locations). Used at order creation. No-op if variant has no inventory items. */
+    /** Deduct quantity from a specific (variant, location) level. Used when location is known (e.g. POS preferred location). */
+    @Transactional
+    public void deductAtLevel(Long storeId, String variantPublicId, String locationPublicId, int quantity, String referenceType, String referenceId) {
+        if (quantity <= 0) return;
+        InventoryLevel level = getOrCreateLevel(storeId, variantPublicId, locationPublicId);
+        if (level.getQuantityAvailable() < quantity) {
+            throw new BusinessRuleException("Insufficient stock at this location for variant. Available: " + level.getQuantityAvailable());
+        }
+        level.setQuantityAvailable(level.getQuantityAvailable() - quantity);
+        inventoryLevelRepository.save(level);
+        InventoryMovement movement = new InventoryMovement();
+        movement.setInventoryItem(level.getInventoryItem());
+        movement.setInventoryLevel(level);
+        movement.setQuantityDelta(-quantity);
+        movement.setMovementType(InventoryMovement.MovementType.SALE.name());
+        movement.setReferenceType(referenceType);
+        movement.setReferenceId(referenceId);
+        inventoryMovementRepository.save(movement);
+    }
+
+    /** Deduct quantity for a variant from levels (allocates across locations). Used at order creation. */
     @Transactional
     public void deductVariantQuantity(Long storeId, String variantPublicId, int quantity, String referenceType, String referenceId) {
         if (quantity <= 0) return;
@@ -293,17 +400,18 @@ public class InventoryService {
         if (!variant.getProduct().getStoreId().equals(storeId)) {
             throw new BusinessRuleException("Variant does not belong to this store");
         }
-        var items = inventoryItemRepository.findByStoreIdAndProductVariant_IdOrderByQuantityAvailableDesc(storeId, variant.getId());
-        if (items.isEmpty()) return;
+        var levels = inventoryLevelRepository.findByStoreIdAndVariantIdForUpdate(storeId, variant.getId());
+        if (levels.isEmpty()) return;
         int remaining = quantity;
-        for (InventoryItem item : items) {
+        for (InventoryLevel level : levels) {
             if (remaining <= 0) break;
-            int take = Math.min(remaining, item.getQuantityAvailable());
+            int take = Math.min(remaining, level.getQuantityAvailable());
             if (take <= 0) continue;
-            item.setQuantityAvailable(item.getQuantityAvailable() - take);
-            inventoryItemRepository.save(item);
+            level.setQuantityAvailable(level.getQuantityAvailable() - take);
+            inventoryLevelRepository.save(level);
             InventoryMovement movement = new InventoryMovement();
-            movement.setInventoryItem(item);
+            movement.setInventoryItem(level.getInventoryItem());
+            movement.setInventoryLevel(level);
             movement.setQuantityDelta(-take);
             movement.setMovementType(InventoryMovement.MovementType.SALE.name());
             movement.setReferenceType(referenceType);
