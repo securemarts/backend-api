@@ -13,21 +13,21 @@ import java.math.BigDecimal;
 public class InitiatePaymentRequest {
 
     @NotBlank
-    @Schema(description = "Customer email", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Customer email", requiredMode = Schema.RequiredMode.REQUIRED, example = "customer@example.com")
     private String email;
 
     @NotNull
     @DecimalMin("0.01")
-    @Schema(description = "Amount", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Amount", requiredMode = Schema.RequiredMode.REQUIRED, example = "15000.00")
     private BigDecimal amount;
 
     @Schema(description = "Currency", example = "NGN")
     private String currency = "NGN";
 
-    @Schema(description = "Order public ID from checkout – include this when paying for an order so the payment is linked")
+    @Schema(description = "Order public ID from checkout – include this when paying for an order so the payment is linked", example = "39e7290c-1e40-4424-82fc-af93ebe5ab06")
     private String orderId;
 
-    @Schema(description = "Callback URL after payment")
+    @Schema(description = "Callback URL after payment", example = "https://mystore.com/payment/callback")
     private String callbackUrl;
 
     @Schema(description = "Payment gateway", allowableValues = {"PAYSTACK", "FLUTTERWAVE"})

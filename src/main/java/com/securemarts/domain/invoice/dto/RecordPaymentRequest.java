@@ -14,16 +14,16 @@ public class RecordPaymentRequest {
 
     @NotNull
     @DecimalMin("0.0001")
-    @Schema(description = "Payment amount", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Payment amount", requiredMode = Schema.RequiredMode.REQUIRED, example = "5000.00")
     private BigDecimal amount;
 
     @NotNull
-    @Schema(description = "Payment method", requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"CASH", "BANK_TRANSFER", "POS", "OTHER"})
+    @Schema(description = "Payment method", requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"CASH", "BANK_TRANSFER", "POS", "OTHER"}, example = "BANK_TRANSFER")
     private String paymentMethod;
 
     @Schema(description = "When the payment was made (default: now)")
     private Instant paidAt;
 
-    @Schema(description = "Optional reference (e.g. bank ref)")
+    @Schema(description = "Optional reference (e.g. bank ref)", example = "TRF-20260313-001")
     private String reference;
 }
