@@ -3,11 +3,8 @@ package com.securemarts.domain.pos.service;
 import com.securemarts.common.exception.BusinessRuleException;
 import com.securemarts.common.exception.ResourceNotFoundException;
 import com.securemarts.domain.catalog.repository.ProductVariantRepository;
-import com.securemarts.domain.inventory.entity.InventoryItem;
-import com.securemarts.domain.inventory.entity.InventoryMovement;
-import com.securemarts.domain.inventory.repository.InventoryItemRepository;
-import com.securemarts.domain.inventory.repository.InventoryMovementRepository;
 import com.securemarts.domain.inventory.repository.LocationRepository;
+import com.securemarts.domain.inventory.service.InventoryService;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
 import com.securemarts.domain.onboarding.service.SubscriptionLimitsService;
 import com.securemarts.domain.invoice.dto.PosCreditLineDto;
@@ -36,8 +33,7 @@ public class POSService {
     private final StoreRepository storeRepository;
     private final SubscriptionLimitsService subscriptionLimitsService;
     private final ProductVariantRepository productVariantRepository;
-    private final InventoryItemRepository inventoryItemRepository;
-    private final InventoryMovementRepository inventoryMovementRepository;
+    private final InventoryService inventoryService;
     private final LocationRepository locationRepository;
     private final InvoiceService invoiceService;
 
@@ -227,31 +223,17 @@ public class POSService {
 
     private void deductInventoryForTransaction(Long storeId, Long preferredLocationId, OfflineTransaction tx) {
         for (OfflineTransactionItem line : tx.getItems()) {
-            List<InventoryItem> candidates;
+            String variantPublicId = productVariantRepository.findById(line.getProductVariantId())
+                    .map(com.securemarts.domain.catalog.entity.ProductVariant::getPublicId)
+                    .orElseThrow(() -> new ResourceNotFoundException("ProductVariant", String.valueOf(line.getProductVariantId())));
             if (preferredLocationId != null) {
-                candidates = inventoryItemRepository.findByProductVariantIdAndLocationId(line.getProductVariantId(), preferredLocationId)
-                        .map(List::of).orElse(Collections.emptyList());
+                String locationPublicId = locationRepository.findById(preferredLocationId)
+                        .map(com.securemarts.domain.inventory.entity.Location::getPublicId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Location", String.valueOf(preferredLocationId)));
+                inventoryService.deductAtLevel(storeId, variantPublicId, locationPublicId, line.getQuantity(), "POS_SYNC", tx.getPublicId());
             } else {
-                candidates = inventoryItemRepository.findByStoreIdAndProductVariant_IdOrderByQuantityAvailableDesc(storeId, line.getProductVariantId());
+                inventoryService.deductVariantQuantity(storeId, variantPublicId, line.getQuantity(), "POS_SYNC", tx.getPublicId());
             }
-            if (candidates.isEmpty()) {
-                candidates = inventoryItemRepository.findByStoreId(storeId).stream()
-                        .filter(ii -> ii.getProductVariant().getId().equals(line.getProductVariantId()))
-                        .toList();
-            }
-            InventoryItem item = candidates.stream().filter(ii -> ii.getQuantityAvailable() >= line.getQuantity()).findFirst()
-                    .orElse(candidates.isEmpty() ? null : candidates.get(0));
-            if (item == null) throw new BusinessRuleException("Insufficient inventory for variant " + line.getProductVariantId());
-            if (item.getQuantityAvailable() < line.getQuantity()) throw new BusinessRuleException("Insufficient quantity for variant");
-            item.setQuantityAvailable(item.getQuantityAvailable() - line.getQuantity());
-            inventoryItemRepository.save(item);
-            InventoryMovement mov = new InventoryMovement();
-            mov.setInventoryItem(item);
-            mov.setQuantityDelta(-line.getQuantity());
-            mov.setMovementType(InventoryMovement.MovementType.SALE.name());
-            mov.setReferenceType("POS_SYNC");
-            mov.setReferenceId(tx.getPublicId());
-            inventoryMovementRepository.save(mov);
         }
     }
 

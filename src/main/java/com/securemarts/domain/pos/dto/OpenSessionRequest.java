@@ -9,8 +9,9 @@ import java.math.BigDecimal;
 @Schema(description = "Open POS session")
 public class OpenSessionRequest {
 
-    @Schema(description = "Opening cash amount")
+    @Schema(description = "Opening cash amount", example = "5000.00")
     private BigDecimal openingCashAmount = BigDecimal.ZERO;
 
+    @Schema(description = "Staff name or ID who opened the session", example = "John")
     private String openedBy;
 }

@@ -9,6 +9,6 @@ import java.math.BigDecimal;
 @Schema(description = "Close POS session")
 public class CloseSessionRequest {
 
-    @Schema(description = "Closing cash amount (counted)")
+    @Schema(description = "Closing cash amount (counted)", example = "25000.00")
     private BigDecimal closingCashAmount;
 }
