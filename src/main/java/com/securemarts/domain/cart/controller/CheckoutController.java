@@ -7,6 +7,8 @@ import com.securemarts.domain.order.dto.OrderResponse;
 import com.securemarts.domain.order.entity.Order;
 import com.securemarts.domain.onboarding.repository.StoreRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,7 +31,7 @@ public class CheckoutController {
     @Operation(summary = "Create order from cart", description = "Converts cart to order and clears cart")
     public ResponseEntity<OrderResponse> createOrder(
             @PathVariable String storePublicId,
-            @RequestParam String cartId) {
+            @Parameter(description = "Cart public ID to convert to order", schema = @Schema(example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")) @RequestParam String cartId) {
         Long storeId = resolveStoreId(storePublicId);
         Long customerId = null;
         Order order = checkoutService.createOrderFromCart(storeId, customerId, cartId, null, null, null);
@@ -40,7 +42,7 @@ public class CheckoutController {
     @Operation(summary = "Cancel checkout", description = "Release reservation and cancel order. Only for PENDING orders before payment.")
     public ResponseEntity<Void> cancelCheckout(
             @PathVariable String storePublicId,
-            @PathVariable String orderPublicId) {
+            @Parameter(description = "Order public ID") @PathVariable String orderPublicId) {
         Long storeId = resolveStoreId(storePublicId);
         checkoutService.cancelCheckout(storeId, orderPublicId);
         return ResponseEntity.noContent().build();
