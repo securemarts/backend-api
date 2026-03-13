@@ -12,19 +12,19 @@ import java.math.BigDecimal;
 @Schema(description = "Invoice line item (variant or free-text description)")
 public class InvoiceItemRequest {
 
-    @Schema(description = "Product variant public ID (optional; if null, description is required)")
+    @Schema(description = "Product variant public ID (optional; if null, description is required)", example = "ffb7e392-8d86-4f6b-8fdb-abf285885fca")
     private String variantPublicId;
 
-    @Schema(description = "Line description (required when variantPublicId is null)")
+    @Schema(description = "Line description (required when variantPublicId is null)", example = "Custom engraving service")
     private String description;
 
     @NotNull
     @Min(1)
-    @Schema(description = "Quantity", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Quantity", requiredMode = Schema.RequiredMode.REQUIRED, example = "3")
     private Integer quantity;
 
     @NotNull
     @DecimalMin("0")
-    @Schema(description = "Unit price", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Unit price", requiredMode = Schema.RequiredMode.REQUIRED, example = "1500.00")
     private BigDecimal unitPrice;
 }
