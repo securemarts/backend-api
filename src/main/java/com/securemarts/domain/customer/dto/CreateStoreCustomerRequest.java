@@ -11,19 +11,19 @@ import java.math.BigDecimal;
 public class CreateStoreCustomerRequest {
 
     @NotBlank
-    @Schema(description = "Customer name", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Customer name", requiredMode = Schema.RequiredMode.REQUIRED, example = "Adebayo Johnson")
     private String name;
 
     @NotBlank
-    @Schema(description = "Customer phone", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Customer phone", requiredMode = Schema.RequiredMode.REQUIRED, example = "+2348012345678")
     private String phone;
 
-    @Schema(description = "Customer email")
+    @Schema(description = "Customer email", example = "adebayo@example.com")
     private String email;
 
-    @Schema(description = "Customer address")
+    @Schema(description = "Customer address", example = "25 Marina Street, Lagos Island, Lagos")
     private String address;
 
-    @Schema(description = "Optional credit limit for credit sales")
+    @Schema(description = "Optional credit limit for credit sales", example = "50000.00")
     private BigDecimal creditLimit;
 }
