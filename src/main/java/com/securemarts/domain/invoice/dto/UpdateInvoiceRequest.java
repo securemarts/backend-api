@@ -11,10 +11,10 @@ import java.util.List;
 @Schema(description = "Request to update a draft invoice (items, due date, notes)")
 public class UpdateInvoiceRequest {
 
-    @Schema(description = "Due date")
+    @Schema(description = "Due date", example = "2026-04-30")
     private LocalDate dueDate;
 
-    @Schema(description = "Notes")
+    @Schema(description = "Notes", example = "Revised payment terms")
     private String notes;
 
     @Valid
