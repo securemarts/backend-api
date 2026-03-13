@@ -22,15 +22,15 @@ public class RiderRegisterRequest {
 
     @NotBlank
     @Size(max = 100)
-    @Schema(description = "First name", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "First name", example = "Tunde", requiredMode = Schema.RequiredMode.REQUIRED)
     private String firstName;
 
     @NotBlank
     @Size(max = 100)
-    @Schema(description = "Last name", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Last name", example = "Bakare", requiredMode = Schema.RequiredMode.REQUIRED)
     private String lastName;
 
     @Size(max = 20)
-    @Schema(description = "Phone number (optional)")
+    @Schema(description = "Phone number (optional)", example = "+2349087654321")
     private String phone;
 }

@@ -4,6 +4,8 @@ import com.securemarts.domain.rider.dto.RiderDocumentResponse;
 import com.securemarts.domain.rider.dto.RiderProfileResponse;
 import com.securemarts.domain.rider.service.RiderKycService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +36,8 @@ public class RiderKycController {
     @Operation(summary = "Upload KYC document", description = "Upload ID, proof of address, etc. documentType e.g. ID_CARD, PROOF_OF_ADDRESS. Moves verification to UNDER_REVIEW.")
     public ResponseEntity<RiderDocumentResponse> uploadDocument(
             @AuthenticationPrincipal String riderPublicId,
-            @RequestParam String documentType,
-            @RequestParam("file") MultipartFile file) {
+            @Parameter(description = "Document type", schema = @Schema(example = "ID_CARD", allowableValues = {"ID_CARD", "PROOF_OF_ADDRESS", "DRIVERS_LICENSE", "VEHICLE_REGISTRATION"})) @RequestParam String documentType,
+            @Parameter(description = "Document file (PDF, image)") @RequestParam("file") MultipartFile file) {
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
                 .body(riderKycService.uploadDocument(riderPublicId, documentType, file));
     }

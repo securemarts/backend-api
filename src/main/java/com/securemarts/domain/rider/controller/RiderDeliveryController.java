@@ -52,9 +52,9 @@ public class RiderDeliveryController {
     @Operation(summary = "Get available deliveries to claim", description = "PENDING deliveries within radius of rider (same zone). Use when autoAssign=false.")
     public ResponseEntity<List<AvailableDeliveryResponse>> getAvailableDeliveries(
             @AuthenticationPrincipal String riderPublicId,
-            @RequestParam(required = false) java.math.BigDecimal latitude,
-            @RequestParam(required = false) java.math.BigDecimal longitude,
-            @RequestParam(required = false) Double radiusKm) {
+            @Parameter(description = "Current rider latitude", schema = @Schema(example = "6.5244")) @RequestParam(required = false) java.math.BigDecimal latitude,
+            @Parameter(description = "Current rider longitude", schema = @Schema(example = "3.3792")) @RequestParam(required = false) java.math.BigDecimal longitude,
+            @Parameter(description = "Search radius in km", schema = @Schema(example = "10")) @RequestParam(required = false) Double radiusKm) {
         return ResponseEntity.ok(riderDeliveryService.getAvailableDeliveries(riderPublicId, latitude, longitude, radiusKm));
     }
 
@@ -117,7 +117,7 @@ public class RiderDeliveryController {
     public ResponseEntity<RiderDeliveryResponse> startDelivery(
             @AuthenticationPrincipal String riderPublicId,
             @PathVariable String deliveryOrderPublicId,
-            @RequestParam(defaultValue = "true") boolean pickedUp) {
+            @Parameter(description = "true = PICKED_UP, false = IN_TRANSIT", schema = @Schema(example = "true")) @RequestParam(defaultValue = "true") boolean pickedUp) {
         return ResponseEntity.ok(riderDeliveryService.startDelivery(riderPublicId, deliveryOrderPublicId, pickedUp));
     }
 
@@ -145,7 +145,7 @@ public class RiderDeliveryController {
             @AuthenticationPrincipal String riderPublicId,
             @PathVariable String deliveryOrderPublicId,
             @Parameter(description = "POD type", required = true, schema = @Schema(allowableValues = {"SIGNATURE", "PHOTO"})) @RequestParam String type,
-            @RequestParam(required = false) MultipartFile file) {
+            @Parameter(description = "POD file (signature image or photo)") @RequestParam(required = false) MultipartFile file) {
         return ResponseEntity.ok(riderDeliveryService.uploadProofOfDelivery(riderPublicId, deliveryOrderPublicId, type, file));
     }
 
