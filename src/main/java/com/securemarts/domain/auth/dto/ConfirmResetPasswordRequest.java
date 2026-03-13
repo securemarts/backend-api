@@ -10,11 +10,11 @@ import lombok.Data;
 public class ConfirmResetPasswordRequest {
 
     @NotBlank
-    @Schema(description = "Email address", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Email address", example = "user@example.com", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 
     @NotBlank
-    @Schema(description = "5-digit OTP code from email", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "5-digit OTP code from email", example = "12345", requiredMode = Schema.RequiredMode.REQUIRED)
     private String code;
 
     @NotBlank
