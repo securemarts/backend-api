@@ -12,10 +12,10 @@ import java.util.List;
 public class AssignBatchRequest {
 
     @NotEmpty
-    @Schema(description = "List of delivery order public IDs to assign", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "List of delivery order public IDs to assign", example = "[\"del-id-1\",\"del-id-2\"]", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<String> deliveryOrderPublicIds;
 
     @NotNull
-    @Schema(description = "Rider public ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Rider public ID", example = "r1a2b3c4-d5e6-7890-abcd-ef1234567890", requiredMode = Schema.RequiredMode.REQUIRED)
     private String riderPublicId;
 }
