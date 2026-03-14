@@ -34,6 +34,10 @@ public class Store extends BaseEntity {
     @Column(nullable = false)
     private boolean active;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_type_id")
+    private BusinessType businessType;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "sales_channel", nullable = false, length = 20)
     private SalesChannel salesChannel = SalesChannel.BOTH;
