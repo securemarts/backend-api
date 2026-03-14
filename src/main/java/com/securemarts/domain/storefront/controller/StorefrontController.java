@@ -1,6 +1,8 @@
 package com.securemarts.domain.storefront.controller;
 
 import com.securemarts.common.dto.PageResponse;
+import com.securemarts.domain.catalog.dto.CollectionResponse;
+import com.securemarts.domain.catalog.dto.MenuResponse;
 import com.securemarts.domain.catalog.dto.ProductResponse;
 import com.securemarts.domain.storefront.dto.StorefrontStoreDto;
 import com.securemarts.domain.storefront.service.StorefrontService;
@@ -13,6 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/storefront")
@@ -44,5 +48,35 @@ public class StorefrontController {
             @Parameter(description = "Store URL slug (e.g. acme-main)", schema = @Schema(example = "acme-main")) @PathVariable String storeSlug,
             @Parameter(description = "Product public ID") @PathVariable String productPublicId) {
         return ResponseEntity.ok(storefrontService.getProduct(storeSlug, productPublicId));
+    }
+
+    @GetMapping("/{storeSlug}/menus/{handle}")
+    @Operation(summary = "Get navigation menu by handle",
+            description = "Returns a navigation menu with nested items. "
+                    + "Common handles: main-menu, footer. "
+                    + "Items can link to collections, products, external URLs, or the store home page.")
+    public ResponseEntity<MenuResponse> getMenu(
+            @Parameter(description = "Store URL slug (e.g. acme-main)", schema = @Schema(example = "acme-main")) @PathVariable String storeSlug,
+            @Parameter(description = "Menu handle (e.g. main-menu, footer)", schema = @Schema(example = "main-menu")) @PathVariable String handle) {
+        return ResponseEntity.ok(storefrontService.getMenuByHandle(storeSlug, handle));
+    }
+
+    @GetMapping("/{storeSlug}/collections")
+    @Operation(summary = "List collections",
+            description = "Paginated list of collections for the store. "
+                    + "Includes title, handle, image, description, and product count.")
+    public ResponseEntity<List<CollectionResponse>> listCollections(
+            @Parameter(description = "Store URL slug (e.g. acme-main)", schema = @Schema(example = "acme-main")) @PathVariable String storeSlug) {
+        return ResponseEntity.ok(storefrontService.listCollections(storeSlug));
+    }
+
+    @GetMapping("/{storeSlug}/collections/{collectionHandle}")
+    @Operation(summary = "Get collection by handle",
+            description = "Returns collection details including products. "
+                    + "Use this to display a collection page on the storefront.")
+    public ResponseEntity<CollectionResponse> getCollection(
+            @Parameter(description = "Store URL slug (e.g. acme-main)", schema = @Schema(example = "acme-main")) @PathVariable String storeSlug,
+            @Parameter(description = "Collection handle (e.g. summer-sale)", schema = @Schema(example = "summer-sale")) @PathVariable String collectionHandle) {
+        return ResponseEntity.ok(storefrontService.getCollectionByHandle(storeSlug, collectionHandle));
     }
 }
