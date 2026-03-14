@@ -77,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/webhooks/**").permitAll()
                         .requestMatchers("/admin/auth/login", "/admin/auth/complete-setup").permitAll()
                         .requestMatchers("/onboarding/business-types").permitAll()
+                        .requestMatchers("/onboarding/slug-available").permitAll()
                         .requestMatchers("/admin/**").hasAnyRole("PLATFORM_ADMIN", "SUPERUSER", "SUPPORT")
                         .requestMatchers("/rider/**").hasRole("RIDER")
                         .requestMatchers("/stores/*/settings/**").hasAnyRole("MERCHANT_OWNER", "MERCHANT_STAFF")
