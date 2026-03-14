@@ -44,48 +44,92 @@ public class OnboardingService {
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
 
+    @Transactional(readOnly = true)
+    public boolean isSlugTaken(String slug) {
+        if (slug == null || slug.isBlank()) return true;
+        return storeRepository.existsByDomainSlug(slug.toLowerCase().trim());
+    }
+
     @Transactional
-    public BusinessResponse createBusiness(String userPublicId, CreateBusinessRequest request, MultipartFile logo) throws IOException {
+    public BusinessResponse createBusiness(String userPublicId, CreateBusinessRequest request, MultipartFile logo,
+                                           String storeName, String domainSlug, String defaultCurrency) throws IOException {
         var user = userRepository.findByPublicId(userPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userPublicId));
         if (businessOwnerRepository.findByUserId(user.getId()).stream().anyMatch(bo -> bo.isPrimaryOwner())) {
             throw new BusinessRuleException("User already owns a business");
         }
-        Business business = new Business();
         if (request.getLegalName() == null || request.getLegalName().isBlank()) {
             throw new BusinessRuleException("legalName is required");
         }
-        business.setLegalName(request.getLegalName().trim());
-        business.setTradeName(request.getTradeName() != null ? request.getTradeName().trim() : null);
-        business.setCacNumber(request.getCacNumber() != null ? request.getCacNumber().trim() : null);
         if (request.getBusinessTypePublicId() == null || request.getBusinessTypePublicId().isBlank()) {
             throw new BusinessRuleException("businessTypePublicId is required");
         }
+        if (logo == null || logo.isEmpty()) {
+            throw new BusinessRuleException("logo is required");
+        }
+        String contentType = logo.getContentType();
+        if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+            throw new BusinessRuleException("Logo file must be an image (PNG, JPEG, or WebP)");
+        }
+        if (storeName == null || storeName.isBlank()) {
+            throw new BusinessRuleException("storeName is required");
+        }
+        if (domainSlug == null || domainSlug.isBlank()) {
+            throw new BusinessRuleException("domainSlug is required");
+        }
+        String normalizedSlug = domainSlug.toLowerCase().trim();
+        if (!normalizedSlug.matches("^[a-z0-9][a-z0-9-]*[a-z0-9]$")) {
+            throw new BusinessRuleException("domainSlug must be lowercase alphanumeric with hyphens, starting and ending with an alphanumeric character");
+        }
+        if (storeRepository.existsByDomainSlug(normalizedSlug)) {
+            throw new BusinessRuleException("Domain slug already taken");
+        }
+
         String typePublicId = request.getBusinessTypePublicId().trim();
         BusinessType type = businessTypeRepository.findByPublicId(typePublicId)
                 .orElseThrow(() -> new BusinessRuleException("Invalid businessTypePublicId: " + typePublicId));
+
+        Business business = new Business();
+        business.setLegalName(request.getLegalName().trim());
+        business.setTradeName(request.getTradeName() != null ? request.getTradeName().trim() : null);
+        business.setCacNumber(request.getCacNumber() != null ? request.getCacNumber().trim() : null);
         business.setBusinessType(type);
         business.setVerificationStatus(Business.VerificationStatus.PENDING);
         business.setSubscriptionPlan(Business.SubscriptionPlan.BASIC);
         business.setSubscriptionStatus(Business.SubscriptionStatus.NONE);
         business.setTrialEndsAt(null);
         business = businessRepository.save(business);
-        if (logo != null && !logo.isEmpty()) {
-            String contentType = logo.getContentType();
-            if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
-                throw new BusinessRuleException("Logo file must be an image (PNG, JPEG, or WebP)");
-            }
-            String url = fileStorageService.storeBusinessLogo(business.getPublicId(), logo);
-            if (url != null) {
-                business.setLogoUrl(url);
-                business = businessRepository.save(business);
-            }
-        }
+
         BusinessOwner owner = new BusinessOwner();
         owner.setBusiness(business);
         owner.setUserId(user.getId());
         owner.setPrimaryOwner(true);
         businessOwnerRepository.save(owner);
+
+        Store store = new Store();
+        store.setBusiness(business);
+        store.setName(storeName.trim());
+        store.setDomainSlug(normalizedSlug);
+        store.setDefaultCurrency(defaultCurrency != null && !defaultCurrency.isBlank() ? defaultCurrency : "NGN");
+        store.setBusinessType(type);
+        store.setActive(false);
+        store = storeRepository.save(store);
+
+        StoreProfile profile = new StoreProfile();
+        profile.setStore(store);
+        profile.setCountry("NG");
+
+        String logoUrl = fileStorageService.storeStoreLogo(store.getPublicId(), logo);
+        if (logoUrl != null) {
+            profile.setLogoUrl(logoUrl);
+            business.setLogoUrl(logoUrl);
+            businessRepository.save(business);
+        }
+        storeProfileRepository.save(profile);
+        store.setProfile(profile);
+
+        business.getStores().add(store);
+
         try {
             emailService.sendWelcomeOnboard(user.getEmail(), user.getFirstName());
             log.info("Welcome onboard email sent to {}", user.getEmail());
@@ -96,7 +140,8 @@ public class OnboardingService {
     }
 
     @Transactional
-    public StoreResponse createStore(String userPublicId, String businessPublicId, CreateStoreRequest request) {
+    public StoreResponse createStore(String userPublicId, String businessPublicId,
+                                     CreateStoreRequest request, MultipartFile logo) throws IOException {
         Business business = businessRepository.findByPublicId(businessPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business", businessPublicId));
         ensureUserOwnsBusiness(userPublicId, business.getId());
@@ -105,19 +150,40 @@ public class OnboardingService {
         if (storeCount >= limits.getMaxStores()) {
             throw new BusinessRuleException("Store limit reached for your plan (" + limits.getMaxStores() + "). Upgrade to add more stores.");
         }
-        if (storeRepository.existsByDomainSlug(request.getDomainSlug().toLowerCase())) {
+        if (logo == null || logo.isEmpty()) {
+            throw new BusinessRuleException("logo is required");
+        }
+        String contentType = logo.getContentType();
+        if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+            throw new BusinessRuleException("Logo file must be an image (PNG, JPEG, or WebP)");
+        }
+        if (request.getBusinessTypePublicId() == null || request.getBusinessTypePublicId().isBlank()) {
+            throw new BusinessRuleException("businessTypePublicId is required");
+        }
+        String normalizedSlug = request.getDomainSlug().toLowerCase().trim();
+        if (storeRepository.existsByDomainSlug(normalizedSlug)) {
             throw new BusinessRuleException("Domain slug already taken");
         }
+        String typePublicId = request.getBusinessTypePublicId().trim();
+        BusinessType type = businessTypeRepository.findByPublicId(typePublicId)
+                .orElseThrow(() -> new BusinessRuleException("Invalid businessTypePublicId: " + typePublicId));
+
         Store store = new Store();
         store.setBusiness(business);
         store.setName(request.getName().trim());
-        store.setDomainSlug(request.getDomainSlug().toLowerCase().trim());
+        store.setDomainSlug(normalizedSlug);
         store.setDefaultCurrency(request.getDefaultCurrency() != null ? request.getDefaultCurrency() : "NGN");
+        store.setBusinessType(type);
         store.setActive(false);
         store = storeRepository.save(store);
+
         StoreProfile profile = new StoreProfile();
         profile.setStore(store);
         profile.setCountry("NG");
+        String logoUrl = fileStorageService.storeStoreLogo(store.getPublicId(), logo);
+        if (logoUrl != null) {
+            profile.setLogoUrl(logoUrl);
+        }
         storeProfileRepository.save(profile);
         store.setProfile(profile);
         return StoreResponse.from(store);
