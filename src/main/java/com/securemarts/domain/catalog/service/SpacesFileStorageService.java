@@ -74,6 +74,14 @@ public class SpacesFileStorageService implements FileStorageService {
         return spacesProperties.getPublicUrlForKey(key);
     }
 
+    @Override
+    public String storeStoreLogo(String storePublicId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) return null;
+        String key = buildKey("store-logos", storePublicId, file.getOriginalFilename());
+        upload(key, file);
+        return spacesProperties.getPublicUrlForKey(key);
+    }
+
     private String buildKey(String namespace, String entityId, String originalFilename) {
         String name = originalFilename != null && !originalFilename.isBlank() ? originalFilename : "file";
         String sanitized = sanitizeFilename(name);
