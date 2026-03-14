@@ -42,23 +42,53 @@ public class OnboardingController {
     private final SubscriptionService subscriptionService;
     private final BusinessTypeRepository businessTypeRepository;
 
+    @GetMapping("/slug-available")
+    @Operation(summary = "Check slug availability",
+            description = "Check if a domain slug is available for a new store. No authentication required.")
+    public ResponseEntity<SlugAvailabilityResponse> checkSlugAvailable(
+            @Parameter(description = "Domain slug to check", required = true, example = "acme-main")
+            @RequestParam String slug) {
+        boolean available = !onboardingService.isSlugTaken(slug);
+        return ResponseEntity.ok(new SlugAvailabilityResponse(slug, available));
+    }
+
     @PostMapping(value = "/businesses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Create business", description = "Step 1: Create business after user verification. Send form fields: legalName (required), tradeName, cacNumber, businessTypePublicId (required, from /onboarding/business-types); optional file part 'logo'.")
+    @Operation(summary = "Create business",
+            description = "Create business and its first default store in one step. "
+                    + "Send form fields: legalName (required), tradeName, cacNumber, "
+                    + "businessTypePublicId (required, from /onboarding/business-types), "
+                    + "storeName (required, name of the first store), "
+                    + "domainSlug (required, URL-friendly slug for the store, check availability via /onboarding/slug-available), "
+                    + "defaultCurrency (optional, defaults to NGN); "
+                    + "file part 'logo' (required, store logo image PNG/JPEG/WebP).")
     public ResponseEntity<BusinessResponse> createBusiness(
             @AuthenticationPrincipal String userPublicId,
-            @Parameter(description = "Legal business name", required = true) @RequestParam @NotBlank(message = "legalName is required") String legalName,
-            @Parameter(description = "Trading name") @RequestParam(required = false) String tradeName,
-            @Parameter(description = "CAC registration number") @RequestParam(required = false) String cacNumber,
-            @Parameter(description = "Business type publicId from /onboarding/business-types", required = true)
+            @Parameter(description = "Legal business name", required = true, example = "Acme Ventures Ltd")
+            @RequestParam @NotBlank(message = "legalName is required") String legalName,
+            @Parameter(description = "Trading name", example = "Acme Store")
+            @RequestParam(required = false) String tradeName,
+            @Parameter(description = "CAC registration number", example = "RC123456")
+            @RequestParam(required = false) String cacNumber,
+            @Parameter(description = "Business type publicId from /onboarding/business-types", required = true,
+                    example = "e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab")
             @RequestParam(name = "businessTypePublicId") @NotBlank(message = "businessTypePublicId is required") String businessTypePublicId,
-            @Parameter(description = "Business logo image (PNG/JPEG/WebP)") @RequestPart(name = "logo", required = false) MultipartFile logo) throws java.io.IOException {
+            @Parameter(description = "Name of the first store to create", required = true, example = "Acme Main Store")
+            @RequestParam @NotBlank(message = "storeName is required") String storeName,
+            @Parameter(description = "URL-friendly slug for the store (lowercase alphanumeric with hyphens). "
+                    + "Check availability first via GET /onboarding/slug-available?slug=your-slug",
+                    required = true, example = "acme-main")
+            @RequestParam @NotBlank(message = "domainSlug is required") String domainSlug,
+            @Parameter(description = "Default currency for the store (ISO 4217)", example = "NGN")
+            @RequestParam(required = false, defaultValue = "NGN") String defaultCurrency,
+            @Parameter(description = "Store logo image (PNG/JPEG/WebP). This is required.", required = true)
+            @RequestPart(name = "logo") MultipartFile logo) throws java.io.IOException {
         CreateBusinessRequest request = new CreateBusinessRequest();
         request.setLegalName(legalName);
         request.setTradeName(tradeName);
         request.setCacNumber(cacNumber);
         request.setBusinessTypePublicId(businessTypePublicId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(onboardingService.createBusiness(userPublicId, request, logo));
+                .body(onboardingService.createBusiness(userPublicId, request, logo, storeName, domainSlug, defaultCurrency));
     }
 
     @GetMapping("/businesses/{businessPublicId}")
@@ -69,14 +99,35 @@ public class OnboardingController {
         return ResponseEntity.ok(onboardingService.getBusiness(userPublicId, businessPublicId));
     }
 
-    @PostMapping("/businesses/{businessPublicId}/stores")
-    @Operation(summary = "Create store", description = "Create store under business")
+    @PostMapping(value = "/businesses/{businessPublicId}/stores", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Create store",
+            description = "Create an additional store under a business. "
+                    + "Send form fields: name (required), domainSlug (required, check via /onboarding/slug-available), "
+                    + "defaultCurrency (optional, defaults to NGN), businessTypePublicId (required, from /onboarding/business-types); "
+                    + "file part 'logo' (required, store logo image PNG/JPEG/WebP).")
     public ResponseEntity<StoreResponse> createStore(
             @AuthenticationPrincipal String userPublicId,
             @PathVariable String businessPublicId,
-            @Valid @RequestBody CreateStoreRequest request) {
+            @Parameter(description = "Store name", required = true, example = "Acme Downtown Branch")
+            @RequestParam @NotBlank(message = "name is required") String name,
+            @Parameter(description = "URL-friendly slug (lowercase alphanumeric with hyphens). "
+                    + "Check availability via GET /onboarding/slug-available?slug=your-slug",
+                    required = true, example = "acme-downtown")
+            @RequestParam @NotBlank(message = "domainSlug is required") String domainSlug,
+            @Parameter(description = "Default currency (ISO 4217)", example = "NGN")
+            @RequestParam(required = false, defaultValue = "NGN") String defaultCurrency,
+            @Parameter(description = "Business type publicId from /onboarding/business-types", required = true,
+                    example = "e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab")
+            @RequestParam @NotBlank(message = "businessTypePublicId is required") String businessTypePublicId,
+            @Parameter(description = "Store logo image (PNG/JPEG/WebP). Required.", required = true)
+            @RequestPart(name = "logo") MultipartFile logo) throws java.io.IOException {
+        CreateStoreRequest request = new CreateStoreRequest();
+        request.setName(name);
+        request.setDomainSlug(domainSlug);
+        request.setDefaultCurrency(defaultCurrency);
+        request.setBusinessTypePublicId(businessTypePublicId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(onboardingService.createStore(userPublicId, businessPublicId, request));
+                .body(onboardingService.createStore(userPublicId, businessPublicId, request, logo));
     }
 
     @PostMapping(value = "/businesses/{businessPublicId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
