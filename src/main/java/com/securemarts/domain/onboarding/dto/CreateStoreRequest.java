@@ -22,6 +22,12 @@ public class CreateStoreRequest {
     private String domainSlug;
 
     @Size(min = 3, max = 3)
-    @Schema(description = "Default currency", example = "NGN")
+    @Schema(description = "Default currency (ISO 4217)", example = "NGN")
     private String defaultCurrency = "NGN";
+
+    @NotBlank
+    @Size(max = 36)
+    @Schema(description = "Business type publicId from /onboarding/business-types",
+            example = "e7f3ff7c-8f11-4a6a-8f47-3e5b8d9e12ab", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String businessTypePublicId;
 }
