@@ -12,6 +12,8 @@ public interface CollectionRepository extends JpaRepository<Collection, Long> {
 
     Optional<Collection> findByPublicIdAndStoreId(String publicId, Long storeId);
 
+    Optional<Collection> findByHandleAndStoreId(String handle, Long storeId);
+
     List<Collection> findByStoreId(Long storeId);
 
     List<Collection> findByStoreIdAndCollectionType(Long storeId, Collection.CollectionType collectionType);
