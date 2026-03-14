@@ -52,6 +52,16 @@ public class OnboardingController {
         return ResponseEntity.ok(new SlugAvailabilityResponse(slug, available));
     }
 
+    @GetMapping("/me/status")
+    @Operation(summary = "Get onboarding status",
+            description = "Returns the authenticated merchant's onboarding progress: which steps are complete, "
+                    + "which remain, profile information, business and store details, and an overall completion flag. "
+                    + "The frontend should call this on login to decide whether to show the onboarding screen or the dashboard.")
+    public ResponseEntity<OnboardingStatusResponse> getOnboardingStatus(
+            @AuthenticationPrincipal String userPublicId) {
+        return ResponseEntity.ok(onboardingService.getOnboardingStatus(userPublicId));
+    }
+
     @PostMapping(value = "/businesses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Create business",
             description = "Create business and its first default store in one step. "
