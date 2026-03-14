@@ -6,6 +6,7 @@ import com.securemarts.domain.auth.entity.Role;
 import com.securemarts.domain.auth.repository.RoleRepository;
 import com.securemarts.domain.auth.repository.UserRepository;
 import com.securemarts.domain.catalog.service.FileStorageService;
+import com.securemarts.domain.catalog.service.StoreBootstrapService;
 import com.securemarts.mail.EmailService;
 import com.securemarts.domain.onboarding.dto.*;
 import com.securemarts.domain.onboarding.entity.*;
@@ -42,6 +43,7 @@ public class OnboardingService {
     private final SubscriptionLimitsService subscriptionLimitsService;
     private final BusinessTypeRepository businessTypeRepository;
     private final FileStorageService fileStorageService;
+    private final StoreBootstrapService storeBootstrapService;
     private final EmailService emailService;
 
     @Transactional(readOnly = true)
@@ -130,6 +132,8 @@ public class OnboardingService {
 
         business.getStores().add(store);
 
+        storeBootstrapService.bootstrapDefaults(store.getId());
+
         try {
             emailService.sendWelcomeOnboard(user.getEmail(), user.getFirstName());
             log.info("Welcome onboard email sent to {}", user.getEmail());
@@ -186,6 +190,9 @@ public class OnboardingService {
         }
         storeProfileRepository.save(profile);
         store.setProfile(profile);
+
+        storeBootstrapService.bootstrapDefaults(store.getId());
+
         return StoreResponse.from(store);
     }
 
@@ -258,6 +265,91 @@ public class OnboardingService {
         return storeRepository.findByBusinessIdIn(businessIds).stream()
                 .map(StoreResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public OnboardingStatusResponse getOnboardingStatus(String userPublicId) {
+        var user = userRepository.findByPublicId(userPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userPublicId));
+
+        var userSummary = OnboardingStatusResponse.UserSummary.builder()
+                .publicId(user.getPublicId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .build();
+
+        List<BusinessOwner> ownerships = businessOwnerRepository.findByUserId(user.getId());
+        BusinessOwner primaryOwnership = ownerships.stream()
+                .filter(BusinessOwner::isPrimaryOwner)
+                .findFirst().orElse(null);
+
+        if (primaryOwnership == null) {
+            return OnboardingStatusResponse.builder()
+                    .user(userSummary)
+                    .stores(List.of())
+                    .steps(OnboardingStatusResponse.Steps.builder().build())
+                    .currentStep("BUSINESS_CREATED")
+                    .completed(false)
+                    .build();
+        }
+
+        Business business = primaryOwnership.getBusiness();
+        var businessSummary = OnboardingStatusResponse.BusinessSummary.builder()
+                .publicId(business.getPublicId())
+                .legalName(business.getLegalName())
+                .verificationStatus(business.getVerificationStatus().name())
+                .subscriptionPlan(business.getSubscriptionPlan().name())
+                .build();
+
+        List<Store> stores = storeRepository.findByBusinessId(business.getId());
+        boolean anyBankAccount = false;
+        boolean anyActive = false;
+        List<OnboardingStatusResponse.StoreSummary> storeSummaries = new java.util.ArrayList<>();
+        for (Store store : stores) {
+            boolean hasBankAccount = !bankAccountRepository.findByStoreId(store.getId()).isEmpty();
+            if (hasBankAccount) anyBankAccount = true;
+            if (store.isActive()) anyActive = true;
+            storeSummaries.add(OnboardingStatusResponse.StoreSummary.builder()
+                    .publicId(store.getPublicId())
+                    .name(store.getName())
+                    .domainSlug(store.getDomainSlug())
+                    .active(store.isActive())
+                    .hasBankAccount(hasBankAccount)
+                    .build());
+        }
+
+        boolean documentsUploaded = !complianceDocumentRepository.findByBusinessId(business.getId()).isEmpty();
+        boolean submitted = business.getVerificationStatus() != Business.VerificationStatus.PENDING;
+
+        var steps = OnboardingStatusResponse.Steps.builder()
+                .businessCreated(true)
+                .storeCreated(!stores.isEmpty())
+                .documentsUploaded(documentsUploaded)
+                .bankAccountAdded(anyBankAccount)
+                .submittedForVerification(submitted)
+                .storeActivated(anyActive)
+                .build();
+
+        String currentStep = null;
+        if (!steps.isStoreCreated()) currentStep = "STORE_CREATED";
+        else if (!steps.isDocumentsUploaded()) currentStep = "DOCUMENTS_UPLOADED";
+        else if (!steps.isBankAccountAdded()) currentStep = "BANK_ACCOUNT_ADDED";
+        else if (!steps.isSubmittedForVerification()) currentStep = "SUBMITTED_FOR_VERIFICATION";
+        else if (!steps.isStoreActivated()) currentStep = "STORE_ACTIVATED";
+
+        boolean completed = steps.isBusinessCreated() && steps.isStoreCreated()
+                && steps.isDocumentsUploaded() && steps.isBankAccountAdded()
+                && steps.isSubmittedForVerification();
+
+        return OnboardingStatusResponse.builder()
+                .user(userSummary)
+                .business(businessSummary)
+                .stores(storeSummaries)
+                .steps(steps)
+                .currentStep(currentStep)
+                .completed(completed)
+                .build();
     }
 
     @Transactional
